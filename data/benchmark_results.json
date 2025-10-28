@@ -1,0 +1,34 @@
+[
+  {
+    "triangles": 1,
+    "light": "omnidirectional",
+    "fps_mean": 0.0,
+    "fps_std": 0.0,
+    "fps_max": 0.0,
+    "fps_min": 0.0,
+    "cpu_percent_avg": null,
+    "cpu_percent_max": null,
+    "gpu_percent_avg": null,
+    "gpu_percent_max": null,
+    "gpu_mem_percent_avg": null,
+    "gpu_mem_percent_max": null,
+    "gpu_details": [],
+    "samples": 0
+  },
+  {
+    "triangles": 1,
+    "light": "spot",
+    "fps_mean": 0.0,
+    "fps_std": 0.0,
+    "fps_max": 0.0,
+    "fps_min": 0.0,
+    "cpu_percent_avg": null,
+    "cpu_percent_max": null,
+    "gpu_percent_avg": null,
+    "gpu_percent_max": null,
+    "gpu_mem_percent_avg": null,
+    "gpu_mem_percent_max": null,
+    "gpu_details": [],
+    "samples": 0
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "cpu": {
+    "processor": "unknown",
+    "note": "Execute este script em uma máquina com suporte a lscpu/mpstat para dados reais."
+  },
+  "gpus": {
+    "available": false,
+    "details": [],
+    "note": "nvidia-smi não estava disponível no ambiente de desenvolvimento."
+  },
+  "usage": {
+    "summary": {
+      "cpu_avg": null,
+      "cpu_max": null,
+      "gpu_avg": null,
+      "gpu_max": null,
+      "gpu_mem_avg": null,
+      "gpu_mem_max": null,
+      "gpu_details": [],
+      "sample_count": 0
+    },
+    "samples": []
+  }
+}
