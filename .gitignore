@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+.DS_Store
+*.log
+build/
+dist/
+.eggs/
+*.egg-info/
+# Generated media assets (kept out of source control)
+assets/textures/*
+!assets/textures/.gitkeep
+docs/figures/*
+!docs/figures/.gitkeep
