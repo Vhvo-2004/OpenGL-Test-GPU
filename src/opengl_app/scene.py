@@ -356,7 +356,17 @@ def _rotation_matrix(angle_degrees: float, axis: np.ndarray) -> np.ndarray:
 
 def _set_uniform_mat4(program: int, name: str, matrix: np.ndarray) -> None:
     location = GL.glGetUniformLocation(program, name)
-    GL.glUniformMatrix4fv(location, 1, GL.GL_FALSE, matrix)
+    # NumPy stores matrices in row-major order, while OpenGL expects column-major
+    # data when ``transpose`` is ``GL_FALSE``.  Transposing here keeps the shader
+    # math intuitive (row-major on the Python side) yet uploads the correct
+    # column-major layout to the GPU, ensuring the model/view/projection
+    # transforms behave as intended.
+    GL.glUniformMatrix4fv(
+        location,
+        1,
+        GL.GL_FALSE,
+        np.ascontiguousarray(matrix.T, dtype=np.float32),
+    )
 
 
 def _set_uniform_vec3(program: int, name: str, vector: np.ndarray) -> None:
