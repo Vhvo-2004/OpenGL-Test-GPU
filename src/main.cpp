@@ -19,7 +19,8 @@ enum class LightingMode
 {
     None,
     Point,
-    Spot
+    Spot,
+    PointAndSpot
 };
 
 struct DemoConfig
@@ -54,6 +55,7 @@ GLuint g_textureId = 0;
 bool g_textureReady = false;
 
 constexpr float kBaseTriangleRadius = 0.15f;
+constexpr float kTriangleHeight = kBaseTriangleRadius * std::sqrt(3.0f);
 constexpr float kTriangleRingRadius = 0.55f;
 
 float toDegrees(float radians)
@@ -69,6 +71,8 @@ std::string lightingModeToString(LightingMode mode)
         return "point";
     case LightingMode::Spot:
         return "spot";
+    case LightingMode::PointAndSpot:
+        return "both";
     case LightingMode::None:
     default:
         return "none";
@@ -84,6 +88,10 @@ LightingMode parseLightingMode(const std::string &value)
     if (value == "spot")
     {
         return LightingMode::Spot;
+    }
+    if (value == "both" || value == "point_spot" || value == "pointandspot")
+    {
+        return LightingMode::PointAndSpot;
     }
     return LightingMode::None;
 }
@@ -201,29 +209,46 @@ void applyLightingState()
     const GLfloat ambient[] = {0.15f, 0.15f, 0.18f, 1.0f};
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
 
+    const GLfloat pointPosition[] = {0.0f, 0.0f, 1.8f, 1.0f};
+    const GLfloat spotPosition[] = {0.0f, 0.0f, 2.2f, 1.0f};
+    const GLfloat spotDirection[] = {0.0f, 0.0f, -1.0f};
+    const GLfloat pointDiffuse[] = {0.9f, 0.9f, 0.95f, 1.0f};
+    const GLfloat spotDiffuse[] = {0.95f, 0.9f, 0.7f, 1.0f};
+
     if (g_config.lighting == LightingMode::Point)
     {
-        const GLfloat position[] = {0.0f, 0.0f, 1.8f, 1.0f};
-        const GLfloat diffuse[] = {0.9f, 0.9f, 0.95f, 1.0f};
         glEnable(GL_LIGHT0);
         glDisable(GL_LIGHT1);
-        glLightfv(GL_LIGHT0, GL_POSITION, position);
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-        glLightfv(GL_LIGHT0, GL_SPECULAR, diffuse);
+        glLightfv(GL_LIGHT0, GL_POSITION, pointPosition);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, pointDiffuse);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, pointDiffuse);
+    }
+    else if (g_config.lighting == LightingMode::Spot)
+    {
+        glDisable(GL_LIGHT0);
+        glEnable(GL_LIGHT1);
+        glLightfv(GL_LIGHT1, GL_POSITION, spotPosition);
+        glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spotDirection);
+        glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 32.0f);
+        glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 12.0f);
+        glLightfv(GL_LIGHT1, GL_DIFFUSE, spotDiffuse);
+        glLightfv(GL_LIGHT1, GL_SPECULAR, spotDiffuse);
     }
     else
     {
-        const GLfloat position[] = {0.0f, 0.0f, 2.2f, 1.0f};
-        const GLfloat direction[] = {0.0f, 0.0f, -1.0f};
-        const GLfloat diffuse[] = {0.95f, 0.9f, 0.7f, 1.0f};
-        glDisable(GL_LIGHT0);
+        glEnable(GL_LIGHT0);
         glEnable(GL_LIGHT1);
-        glLightfv(GL_LIGHT1, GL_POSITION, position);
-        glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, direction);
+
+        glLightfv(GL_LIGHT0, GL_POSITION, pointPosition);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, pointDiffuse);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, pointDiffuse);
+
+        glLightfv(GL_LIGHT1, GL_POSITION, spotPosition);
+        glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spotDirection);
         glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 32.0f);
         glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 12.0f);
-        glLightfv(GL_LIGHT1, GL_DIFFUSE, diffuse);
-        glLightfv(GL_LIGHT1, GL_SPECULAR, diffuse);
+        glLightfv(GL_LIGHT1, GL_DIFFUSE, spotDiffuse);
+        glLightfv(GL_LIGHT1, GL_SPECULAR, spotDiffuse);
     }
 }
 
@@ -270,17 +295,20 @@ void drawTriangle(float offsetAngleRadians, const Color &color)
         glDisable(GL_TEXTURE_2D);
     }
 
+    const float topY = (2.0f / 3.0f) * kTriangleHeight;
+    const float bottomY = -(1.0f / 3.0f) * kTriangleHeight;
+
     glBegin(GL_TRIANGLES);
     glNormal3f(0.0f, 0.0f, 1.0f);
 
     glTexCoord2f(0.5f, 1.0f);
-    glVertex3f(0.0f, kBaseTriangleRadius, 0.0f);
+    glVertex3f(0.0f, topY, 0.0f);
 
     glTexCoord2f(0.0f, 0.0f);
-    glVertex3f(-kBaseTriangleRadius, -kBaseTriangleRadius, 0.0f);
+    glVertex3f(-kBaseTriangleRadius, bottomY, 0.0f);
 
     glTexCoord2f(1.0f, 0.0f);
-    glVertex3f(kBaseTriangleRadius, -kBaseTriangleRadius, 0.0f);
+    glVertex3f(kBaseTriangleRadius, bottomY, 0.0f);
     glEnd();
 
     glPopMatrix();
@@ -425,7 +453,7 @@ void parseArguments(int argc, char **argv)
                       << "  --benchmark       Enable benchmark mode (non-interactive)\n"
                       << "  --duration <s>    Benchmark duration in seconds (default 10)\n"
                       << "  --show-log        Keep FPS logging on stdout during benchmark\n"
-                      << "  --lighting <mode> Lighting mode: none, point, spot (default none)\n"
+                      << "  --lighting <mode> Lighting mode: none, point, spot, both (default none)\n"
                       << "  --no-texture      Disable textured rendering\n"
                       << "  --help            Show this message\n";
             std::exit(EXIT_SUCCESS);

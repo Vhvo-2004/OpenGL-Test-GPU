@@ -33,6 +33,7 @@ class GPUManager:
         self.handles: List[object] = []
         self.names: List[str] = []
         self.notes: List[str] = []
+        self.memory_totals_mb: List[Optional[float]] = []
 
         if pynvml is None:
             self.notes.append("pynvml not installed; GPU utilisation metrics disabled")
@@ -57,6 +58,13 @@ class GPUManager:
                 name = name.decode("utf-8", "replace")
             self.handles.append(handle)
             self.names.append(str(name))
+            total_mb: Optional[float] = None
+            try:
+                mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)  # type: ignore[attr-defined]
+                total_mb = float(mem_info.total) / (1024.0 ** 2)
+            except Exception:
+                total_mb = None
+            self.memory_totals_mb.append(total_mb)
 
         self.available = bool(self.handles)
 
@@ -68,17 +76,69 @@ class GPUManager:
         except Exception:  # pragma: no cover - best effort cleanup
             pass
 
-    def sample(self) -> List[float]:
+    def sample(self) -> List[Dict[str, Optional[float]]]:
         if not self.available:
             return []
 
-        utilisation: List[float] = []
-        for handle in self.handles:
+        utilisation: List[Dict[str, Optional[float]]] = []
+        for index, handle in enumerate(self.handles):
+            snapshot: Dict[str, Optional[float]] = {
+                "gpu_util": None,
+                "mem_util": None,
+                "mem_used_mb": None,
+                "mem_total_mb": None,
+                "temperature_c": None,
+                "power_w": None,
+                "sm_clock_mhz": None,
+                "mem_clock_mhz": None,
+            }
+
             try:
                 stats = pynvml.nvmlDeviceGetUtilizationRates(handle)  # type: ignore[attr-defined]
-                utilisation.append(float(stats.gpu))
+                snapshot["gpu_util"] = float(stats.gpu)
+                memory_util = getattr(stats, "memory", None)
+                if memory_util is not None:
+                    snapshot["mem_util"] = float(memory_util)
             except Exception:  # pragma: no cover - NVML query issues
-                utilisation.append(0.0)
+                pass
+
+            try:
+                mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)  # type: ignore[attr-defined]
+                snapshot["mem_used_mb"] = float(mem_info.used) / (1024.0 ** 2)
+                snapshot["mem_total_mb"] = float(mem_info.total) / (1024.0 ** 2)
+            except Exception:  # pragma: no cover
+                if index < len(self.memory_totals_mb):
+                    snapshot["mem_total_mb"] = self.memory_totals_mb[index]
+
+            try:
+                temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)  # type: ignore[attr-defined]
+                snapshot["temperature_c"] = float(temp)
+            except Exception:  # pragma: no cover
+                pass
+
+            try:
+                power = pynvml.nvmlDeviceGetPowerUsage(handle)  # type: ignore[attr-defined]
+                snapshot["power_w"] = float(power) / 1000.0
+            except Exception:  # pragma: no cover
+                pass
+
+            try:
+                sm_clock = pynvml.nvmlDeviceGetClockInfo(handle, pynvml.NVML_CLOCK_SM)  # type: ignore[attr-defined]
+                snapshot["sm_clock_mhz"] = float(sm_clock)
+            except Exception:  # pragma: no cover
+                try:
+                    graphics_clock = pynvml.nvmlDeviceGetClockInfo(handle, pynvml.NVML_CLOCK_GRAPHICS)  # type: ignore[attr-defined]
+                    snapshot["sm_clock_mhz"] = float(graphics_clock)
+                except Exception:
+                    pass
+
+            try:
+                mem_clock = pynvml.nvmlDeviceGetClockInfo(handle, pynvml.NVML_CLOCK_MEM)  # type: ignore[attr-defined]
+                snapshot["mem_clock_mhz"] = float(mem_clock)
+            except Exception:  # pragma: no cover
+                pass
+
+            utilisation.append(snapshot)
         return utilisation
 
 
@@ -96,7 +156,7 @@ class SystemMonitor:
         self.sample_interval = max(0.1, sample_interval)
         self.cpu_samples: List[float] = []
         self.proc_cpu_samples: List[float] = []
-        self.gpu_samples: List[List[float]] = []
+        self.gpu_samples: List[List[Dict[str, Optional[float]]]] = []
         self.notes: List[str] = []
         if psutil is None:
             self.notes.append("psutil not installed; CPU metrics disabled")
@@ -154,14 +214,14 @@ class SystemMonitor:
                     self.notes.append(f"process cpu_percent failed: {exc}")
                     process = None
 
-            gpu_percentages = GPU_MANAGER.sample()
+            gpu_snapshots = GPU_MANAGER.sample()
 
             if cpu_percent is not None:
                 self.cpu_samples.append(cpu_percent)
             if proc_percent is not None:
                 self.proc_cpu_samples.append(proc_percent)
-            if gpu_percentages:
-                self.gpu_samples.append(gpu_percentages)
+            if gpu_snapshots:
+                self.gpu_samples.append(gpu_snapshots)
 
             if process is not None and not process.is_running():  # type: ignore[call-arg]
                 break
@@ -186,23 +246,85 @@ class SystemMonitor:
         proc_min = self._min(self.proc_cpu_samples)
         proc_max = self._max(self.proc_cpu_samples)
 
-        gpu_flat: List[float] = [value for sample in self.gpu_samples for value in sample]
-        gpu_mean = self._mean(gpu_flat)
-        gpu_min = self._min(gpu_flat)
-        gpu_max = self._max(gpu_flat)
+        def _collect(metric: str) -> List[float]:
+            collected: List[float] = []
+            for sample in self.gpu_samples:
+                for snapshot in sample:
+                    value = snapshot.get(metric)
+                    if value is not None:
+                        collected.append(float(value))
+            return collected
+
+        gpu_util_flat = _collect("gpu_util")
+        gpu_mem_util_flat = _collect("mem_util")
+        gpu_mem_used_flat = _collect("mem_used_mb")
+        gpu_temp_flat = _collect("temperature_c")
+        gpu_power_flat = _collect("power_w")
+        gpu_sm_clock_flat = _collect("sm_clock_mhz")
+        gpu_mem_clock_flat = _collect("mem_clock_mhz")
+
+        gpu_mean = self._mean(gpu_util_flat)
+        gpu_min = self._min(gpu_util_flat)
+        gpu_max = self._max(gpu_util_flat)
+
+        gpu_mem_util_mean = self._mean(gpu_mem_util_flat)
+        gpu_mem_util_min = self._min(gpu_mem_util_flat)
+        gpu_mem_util_max = self._max(gpu_mem_util_flat)
+
+        gpu_mem_used_mean = self._mean(gpu_mem_used_flat)
+        gpu_mem_used_min = self._min(gpu_mem_used_flat)
+        gpu_mem_used_max = self._max(gpu_mem_used_flat)
+
+        gpu_temp_mean = self._mean(gpu_temp_flat)
+        gpu_temp_min = self._min(gpu_temp_flat)
+        gpu_temp_max = self._max(gpu_temp_flat)
+
+        gpu_power_mean = self._mean(gpu_power_flat)
+        gpu_power_min = self._min(gpu_power_flat)
+        gpu_power_max = self._max(gpu_power_flat)
+
+        gpu_sm_clock_mean = self._mean(gpu_sm_clock_flat)
+        gpu_sm_clock_max = self._max(gpu_sm_clock_flat)
+        gpu_mem_clock_mean = self._mean(gpu_mem_clock_flat)
+        gpu_mem_clock_max = self._max(gpu_mem_clock_flat)
 
         gpu_details: List[str] = []
         if self.gpu_samples:
             per_gpu = list(zip(*self.gpu_samples))
-            for index, values in enumerate(per_gpu):
+            for index, snapshots in enumerate(per_gpu):
                 name = GPU_MANAGER.names[index] if index < len(GPU_MANAGER.names) else f"GPU {index}"
-                mean_val = self._mean(values)
-                max_val = self._max(values)
-                min_val = self._min(values)
-                mean_str = f"{mean_val:.2f}" if mean_val is not None else "?"
-                max_str = f"{max_val:.2f}" if max_val is not None else "?"
-                min_str = f"{min_val:.2f}" if min_val is not None else "?"
-                gpu_details.append(f"{name}:mean={mean_str},max={max_str},min={min_str}")
+                util_vals = [snap.get("gpu_util") for snap in snapshots if snap.get("gpu_util") is not None]
+                mem_vals = [snap.get("mem_util") for snap in snapshots if snap.get("mem_util") is not None]
+                used_vals = [snap.get("mem_used_mb") for snap in snapshots if snap.get("mem_used_mb") is not None]
+                temp_vals = [snap.get("temperature_c") for snap in snapshots if snap.get("temperature_c") is not None]
+                power_vals = [snap.get("power_w") for snap in snapshots if snap.get("power_w") is not None]
+                sm_clock_vals = [snap.get("sm_clock_mhz") for snap in snapshots if snap.get("sm_clock_mhz") is not None]
+                mem_clock_vals = [snap.get("mem_clock_mhz") for snap in snapshots if snap.get("mem_clock_mhz") is not None]
+
+                total_mb = None
+                if index < len(GPU_MANAGER.memory_totals_mb):
+                    total_mb = GPU_MANAGER.memory_totals_mb[index]
+                elif snapshots:
+                    total_candidates = [snap.get("mem_total_mb") for snap in snapshots if snap.get("mem_total_mb") is not None]
+                    total_mb = float(total_candidates[0]) if total_candidates else None
+
+                parts = [f"util_mean={self._mean(util_vals):.2f}" if util_vals else "util_mean=?"]
+                if mem_vals:
+                    parts.append(f"mem_mean={self._mean(mem_vals):.2f}")
+                if used_vals:
+                    parts.append(f"mem_used_mean={self._mean(used_vals):.1f}MB")
+                if total_mb is not None:
+                    parts.append(f"mem_total={total_mb:.0f}MB")
+                if temp_vals:
+                    parts.append(f"temp_mean={self._mean(temp_vals):.1f}C")
+                if power_vals:
+                    parts.append(f"power_mean={self._mean(power_vals):.1f}W")
+                if sm_clock_vals:
+                    parts.append(f"sm_clock={self._mean(sm_clock_vals):.0f}MHz")
+                if mem_clock_vals:
+                    parts.append(f"mem_clock={self._mean(mem_clock_vals):.0f}MHz")
+
+                gpu_details.append(f"{name}:" + ",".join(parts))
 
         notes = list(self.notes)
         notes.extend(GPU_MANAGER.notes)
@@ -225,9 +347,45 @@ class SystemMonitor:
             "gpu_util_min": _format(gpu_min),
             "gpu_util_max": _format(gpu_max),
             "gpu_util_delta": _format(gpu_max - gpu_min) if gpu_max is not None and gpu_min is not None else None,
-            "gpu_util_observed": "yes" if any(value > 0.0 for value in gpu_flat) else "no",
+            "gpu_mem_util_mean": _format(gpu_mem_util_mean),
+            "gpu_mem_util_min": _format(gpu_mem_util_min),
+            "gpu_mem_util_max": _format(gpu_mem_util_max),
+            "gpu_mem_util_delta": _format(gpu_mem_util_max - gpu_mem_util_min)
+            if gpu_mem_util_max is not None and gpu_mem_util_min is not None
+            else None,
+            "gpu_mem_used_mb_mean": _format(gpu_mem_used_mean),
+            "gpu_mem_used_mb_min": _format(gpu_mem_used_min),
+            "gpu_mem_used_mb_max": _format(gpu_mem_used_max),
+            "gpu_mem_used_mb_delta": _format(gpu_mem_used_max - gpu_mem_used_min)
+            if gpu_mem_used_max is not None and gpu_mem_used_min is not None
+            else None,
+            "gpu_temp_c_mean": _format(gpu_temp_mean),
+            "gpu_temp_c_min": _format(gpu_temp_min),
+            "gpu_temp_c_max": _format(gpu_temp_max),
+            "gpu_temp_c_delta": _format(gpu_temp_max - gpu_temp_min)
+            if gpu_temp_max is not None and gpu_temp_min is not None
+            else None,
+            "gpu_power_w_mean": _format(gpu_power_mean),
+            "gpu_power_w_min": _format(gpu_power_min),
+            "gpu_power_w_max": _format(gpu_power_max),
+            "gpu_power_w_delta": _format(gpu_power_max - gpu_power_min)
+            if gpu_power_max is not None and gpu_power_min is not None
+            else None,
+            "gpu_sm_clock_mhz_mean": _format(gpu_sm_clock_mean),
+            "gpu_sm_clock_mhz_max": _format(gpu_sm_clock_max),
+            "gpu_mem_clock_mhz_mean": _format(gpu_mem_clock_mean),
+            "gpu_mem_clock_mhz_max": _format(gpu_mem_clock_max),
+            "gpu_util_observed": "yes" if any(value > 0.0 for value in gpu_util_flat) else "no",
             "gpu_count": str(len(GPU_MANAGER.names)),
             "gpu_names": " | ".join(GPU_MANAGER.names) if GPU_MANAGER.names else "",
+            "gpu_memory_totals_mb": "; ".join(
+                f"{GPU_MANAGER.names[i]}={GPU_MANAGER.memory_totals_mb[i]:.0f}MB"
+                if i < len(GPU_MANAGER.names) and GPU_MANAGER.memory_totals_mb[i] is not None
+                else (
+                    f"{GPU_MANAGER.names[i]}=?" if i < len(GPU_MANAGER.names) else ""
+                )
+                for i in range(len(GPU_MANAGER.names))
+            ),
             "gpu_details": "; ".join(gpu_details),
             "samples": str(max(len(self.cpu_samples), len(self.gpu_samples))),
             "notes": "; ".join(sorted(set(filter(None, notes)))),
@@ -244,14 +402,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--triangles",
         type=str,
-        default="1,10,25,50,100",
+        default="1,100,1000,10000,30000,100000,200000,300000",
         help="Comma-separated list of triangle counts to benchmark",
     )
     parser.add_argument(
         "--lighting-modes",
         type=str,
-        default="none,point,spot",
-        help="Comma-separated list of lighting modes (none, point, spot)",
+        default="none,point,spot,both",
+        help="Comma-separated list of lighting modes (none, point, spot, both)",
     )
     parser.add_argument(
         "--textured",
@@ -306,9 +464,9 @@ def parse_lighting_modes(raw: str) -> List[str]:
         token = token.strip().lower()
         if not token:
             continue
-        if token not in {"none", "point", "spot"}:
+        if token not in {"none", "point", "spot", "both", "point_spot", "pointandspot"}:
             raise ValueError(f"Unsupported lighting mode: {token}")
-        modes.append(token)
+        modes.append("both" if token in {"both", "point_spot", "pointandspot"} else token)
     if not modes:
         raise ValueError("At least one lighting mode must be specified")
     return modes
@@ -331,6 +489,15 @@ def print_system_info(info: Dict[str, str]) -> None:
     gpu_summary = GPU_MANAGER.names if GPU_MANAGER.names else ["(none detected)"]
     print("SYSTEM_INFO cpu=" + info["cpu_model"])
     print("SYSTEM_INFO gpus=" + "; ".join(gpu_summary))
+    if GPU_MANAGER.names:
+        memory_summaries = []
+        for name, total in zip(GPU_MANAGER.names, GPU_MANAGER.memory_totals_mb):
+            if total is None:
+                memory_summaries.append(f"{name}:?")
+            else:
+                memory_summaries.append(f"{name}:{total:.0f}MB")
+        if memory_summaries:
+            print("SYSTEM_INFO gpu_memory=" + "; ".join(memory_summaries))
     if GPU_MANAGER.notes:
         print("SYSTEM_INFO notes=" + "; ".join(GPU_MANAGER.notes))
 
@@ -428,9 +595,30 @@ FIELDNAMES = [
     "gpu_util_min",
     "gpu_util_max",
     "gpu_util_delta",
+    "gpu_mem_util_mean",
+    "gpu_mem_util_min",
+    "gpu_mem_util_max",
+    "gpu_mem_util_delta",
+    "gpu_mem_used_mb_mean",
+    "gpu_mem_used_mb_min",
+    "gpu_mem_used_mb_max",
+    "gpu_mem_used_mb_delta",
+    "gpu_temp_c_mean",
+    "gpu_temp_c_min",
+    "gpu_temp_c_max",
+    "gpu_temp_c_delta",
+    "gpu_power_w_mean",
+    "gpu_power_w_min",
+    "gpu_power_w_max",
+    "gpu_power_w_delta",
+    "gpu_sm_clock_mhz_mean",
+    "gpu_sm_clock_mhz_max",
+    "gpu_mem_clock_mhz_mean",
+    "gpu_mem_clock_mhz_max",
     "gpu_util_observed",
     "gpu_count",
     "gpu_names",
+    "gpu_memory_totals_mb",
     "gpu_details",
     "samples",
     "cpu_model",

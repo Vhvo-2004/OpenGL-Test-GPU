@@ -19,7 +19,7 @@ comparação.
 - [CMake](https://cmake.org/)
 - Bibliotecas OpenGL e GLUT (por exemplo, `freeglut`)
 - Python 3.9+
-- Dependências Python: `matplotlib`, `pandas`, `psutil`, `nvidia-ml-py3`
+- Dependências Python: `matplotlib`, `pandas`, `numpy`, `psutil`, `nvidia-ml-py3`
 
 Em distribuições baseadas em Debian/Ubuntu, as dependências de sistema podem ser
 instaladas com:
@@ -56,7 +56,7 @@ O executável `triangle_demo` será gerado dentro da pasta `build/`.
 Opções principais:
 
 - `--triangles <N>`: define o número de triângulos (mínimo 1).
-- `--lighting <modo>`: seleciona a iluminação (`none`, `point` ou `spot`).
+- `--lighting <modo>`: seleciona a iluminação (`none`, `point`, `spot` ou `both`).
 - `--no-texture`: desativa o uso da textura procedural.
 - `--benchmark`: executa em modo automático, registrando FPS no stdout e
   encerrando após o período configurado.
@@ -73,15 +73,17 @@ quando disponível) para responder às questões de uso de hardware.
 
 ```bash
 python scripts/run_benchmark.py \
-  --triangles 1,5,10,25,50 \
-  --lighting-modes none,point,spot \
+  --triangles 1,100,1000,10000,30000,100000,200000,300000 \
+  --lighting-modes none,point,spot,both \
   --textured both \
-  --duration 5
+  --duration 10
 ```
 
 O script salva os resultados em `data/metrics.csv` (por padrão) com colunas para
-FPS médio, uso médio/máximo de CPU (total e por processo), utilização média de
-GPU, número e nomes de GPUs detectadas, além de observações sobre a coleta:
+FPS médio, uso médio/máximo de CPU (total e por processo), utilização da GPU
+(incluindo percentuais do motor e da memória, consumo de memória em MB,
+temperatura, potência e clocks médios/máximos), número e nomes de GPUs
+detectadas, bem como observações sobre a coleta:
 
 ```
 triangles,lighting,textured,duration_s,avg_fps,cpu_percent_mean,...,gpu_count,gpu_names,...
@@ -89,8 +91,9 @@ triangles,lighting,textured,duration_s,avg_fps,cpu_percent_mean,...,gpu_count,gp
 ```
 
 Ao iniciar, o script imprime `SYSTEM_INFO` com o processador identificado,
-lista de GPUs e eventuais avisos (por exemplo, ausência de NVML). Essas
-informações também são registradas na coluna `notes` do CSV.
+lista de GPUs (indicando a memória disponível, útil para placas como a RTX 3050)
+e eventuais avisos (por exemplo, ausência de NVML). Essas informações também
+são registradas na coluna `notes` do CSV.
 
 ## Geração do gráfico
 
@@ -104,7 +107,9 @@ python scripts/plot_fps.py data/metrics.csv --output data/fps_plot.png
 Passe `--textured any` para comparar execuções com e sem textura, ou
 `--lighting none,spot` para focar em modos específicos.
 
-Para analisar CPU/GPU, gere também o gráfico combinado:
+Para analisar CPU/GPU, gere também o gráfico combinado (que cria painéis para
+CPU, utilização da GPU, uso de memória de vídeo, temperatura, potência e
+frequências sempre que os dados estiverem disponíveis):
 
 ```bash
 python scripts/plot_resource_usage.py data/metrics.csv --output data/resource_usage.png
@@ -115,7 +120,11 @@ python scripts/plot_resource_usage.py data/metrics.csv --output data/resource_us
 - Em ambientes sem suporte a janelas (por exemplo, contêineres headless), a
   execução do binário falhará. Utilize um computador local com GPU.
 - Ajuste a duração do benchmark para obter medições estáveis. Intervalos mais
-  longos reduzem flutuações.
+  longos reduzem flutuações, especialmente ao avaliar contagens altas como
+  100&nbsp;000, 200&nbsp;000 ou 300&nbsp;000 triângulos.
+- Execute as quatro combinações de iluminação (`none`, `point`, `spot`, `both`)
+  com e sem textura para comparar o impacto de cada fonte de luz na carga da
+  GPU e do processador.
 - Caso deseje comparar implementações diferentes, mantenha o formato
   `FPS_RESULT` (com campos `triangles`, `lighting`, `textured`, `avg_fps`) para
   que os scripts continuem compatíveis.

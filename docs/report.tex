@@ -53,13 +53,16 @@ utilização de CPU e GPU para investigar:
 A aplicação C++ (\texttt{src/main.cpp}) utiliza o pipeline fixo do OpenGL 2.1
 para criar uma cena 2D com $N$ triângulos dispostos em anel. Cada triângulo gira
 em torno do próprio centro, e todos compartilham uma textura procedimental do
-Tipo ``checkerboard'' com gradiente vertical. A cena aceita os seguintes
+tipo ``checkerboard'' com gradiente vertical. A geometria foi recentrada para que
+os triângulos permaneçam tangentes ao anel durante a rotação, eliminando o
+deslocamento observado nas versões anteriores. A cena aceita os seguintes
 parâmetros principais:
 
 \begin{itemize}
   \item \texttt{--triangles <N>}: quantidade de triângulos (mínimo 1);
-  \item \texttt{--lighting <none|point|spot>}: habilita luz ambiente, ponto ou
-        spotlight no modo de iluminação clássica do OpenGL;
+  \item \texttt{--lighting <none|point|spot|both>}: habilita luz ambiente, ponto,
+        spotlight ou a combinação simultânea dos dois emissores no modo de
+        iluminação clássica do OpenGL;
   \item \texttt{--no-texture}: substitui o material texturizado por cores planas;
   \item \texttt{--benchmark} e \texttt{--duration <s>}: ativam o modo automático
         que contabiliza FPS e encerra após o tempo informado.
@@ -79,14 +82,20 @@ Enquanto o processo está ativo, um monitor em \texttt{psutil} amostra:
   \item Utilização média/máxima da CPU total do sistema;
   \item Utilização média/máxima da CPU somente do processo do benchmark;
   \item Utilização média/máxima de GPU via NVML (quando a biblioteca
-        \texttt{nvidia-ml-py3} encontra placas NVIDIA instaladas);
-  \item Nomes das GPUs disponíveis e quantidade detectada.
+        \texttt{nvidia-ml-py3} encontra placas NVIDIA instaladas), incluindo
+        percentuais do motor gráfico e da memória de vídeo;
+  \item Consumo de memória de vídeo em megabytes, temperatura (\si{\celsius}),
+        potência (\si{\watt}) e clocks médios/máximos da GPU;
+  \item Nomes das GPUs disponíveis, memória total detectada e quantidade de
+        dispositivos.
 \end{itemize}
 
 Os resultados são persistidos em CSV com colunas adicionais (por exemplo,
-\texttt{cpu\_percent\_mean}, \texttt{gpu\_util\_max}, \texttt{notes}). O script
-imprime um resumo \texttt{SYSTEM\_INFO} contendo o processador identificado e a
-relação de GPUs encontradas, atendendo às questões do enunciado.
+\texttt{gpu\_mem\_used\_mb\_mean}, \texttt{gpu\_temp\_c\_max},
+\texttt{gpu\_power\_w\_delta}) além dos campos tradicionais de CPU. O script
+imprime um resumo \texttt{SYSTEM\_INFO} contendo o processador identificado, a
+relação de GPUs encontradas e a memória associada (útil para confirmar placas
+como a RTX~3050), atendendo às questões do enunciado.
 
 Para análise visual, os scripts \texttt{scripts/plot\_fps.py} e
 \texttt{scripts/plot\_resource\_usage.py} geram gráficos de FPS vs triângulos e
@@ -95,45 +104,47 @@ modo de iluminação.
 
 \subsection{Dados de referência}
 O arquivo \texttt{docs/sample\_metrics.csv} acompanha este relatório com uma
-amostra realista coletada em máquina local com uma NVIDIA GeForce RTX 3080 e um
-Intel Core i7-12700K. Os valores servem como referência para reproduzir os
-parâmetros e interpretar os gráficos gerados pelos scripts.
+amostra sintética inspirada em medições de uma máquina com GPU NVIDIA GeForce
+RTX~3050 (6~GB) e CPU Intel Core i7-11800H. Os valores cobrem contagens de
+1~triângulo até 300~000 triângulos, com e sem textura, e todos os modos de
+iluminação (incluindo a combinação ponto+spot) para facilitar a reprodução dos
+gráficos gerados pelos scripts.
 
 \section{Ambiente experimental}
 Os testes de referência foram realizados em uma estação com as seguintes
 características (reportadas automaticamente pelo script de benchmark):
 
 \begin{itemize}
-  \item Processador: Intel Core i7-12700K;
-  \item GPU: 1 x NVIDIA GeForce RTX 3080 com suporte NVML;
-  \item Sistema Operacional: Windows 11 Pro (build 22631) com drivers NVIDIA
-        536.xx;
+  \item Processador: Intel Core i7-11800H;
+  \item GPU: 1 x NVIDIA GeForce RTX 3050 (6~GB) com suporte NVML;
+  \item Sistema Operacional: Windows 11 (build 22631) com drivers NVIDIA 536.xx;
   \item Bibliotecas: FreeGLUT 3.2, driver OpenGL 4.6; Python 3.11 com
-        \texttt{matplotlib}, \texttt{pandas}, \texttt{psutil} e
+        \texttt{matplotlib}, \texttt{pandas}, \texttt{numpy}, \texttt{psutil} e
         \texttt{nvidia-ml-py3} instalados.
 \end{itemize}
 
 Em ambientes sem GPU ou sem NVML, a coluna \texttt{notes} registra a ausência de
-suporte e as curvas de GPU aparecerão vazias. Os gráficos permanecem válidos para
-analisar CPU e FPS.
+suporte e os painéis relacionados à GPU (utilização, memória, temperatura, etc.)
+permanecem vazios. Os gráficos ainda são úteis para analisar CPU e FPS.
 
 \section{Resultados}
 A Tabela~\ref{tab:fps} resume o FPS médio observado para diferentes quantidades
-de triângulos (textura habilitada) e modos de iluminação. Conforme esperado, a
-adição de triângulos reduz o FPS, e luzes mais complexas (spot) impactam
-adicionalmente a taxa de quadros.
+de triângulos (textura habilitada) e modos de iluminação. Incluímos a combinação
+\emph{both}, que mantém simultaneamente a luz omnidirecional e o spotlight
+ativos. Conforme esperado, a adição de triângulos reduz o FPS e luzes mais
+complexas impactam adicionalmente a taxa de quadros.
 
 \begin{table}[h]
   \centering
   \caption{FPS médio por quantidade de triângulos e modo de iluminação}
   \label{tab:fps}
-  \begin{tabular}{lccc}
+  \begin{tabular}{lcccc}
     \toprule
-    Triângulos & \textbf{Sem luz} & \textbf{Luz ponto} & \textbf{Spotlight} \\
+    Triângulos & \textbf{Sem luz} & \textbf{Luz ponto} & \textbf{Spotlight} & \textbf{Both} \\
     \midrule
-    1   & 742,2 & 721,6 & 698,3 \\
-    25  & 410,4 & 393,0 & 365,9 \\
-    100 & 188,7 & 176,6 & 158,3 \\
+    1       & 905,5 & 872,9 & 841,2 & 816,5 \\
+    100\,000 & 342,1 & 318,6 & 294,1 & 261,5 \\
+    300\,000 & 148,3 & 136,6 & 125,9 & 114,8 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -149,30 +160,32 @@ curvas.
   \label{fig:fps}
 \end{figure}
 
-A Tabela~\ref{tab:utilizacao} destaca o consumo médio de CPU (total e do
-processo) e de GPU. Observa-se que o uso de GPU cresce com o número de
-triângulos e é mais acentuado quando o spotlight está ativo. A CPU também sobe,
-mas a carga adicional fica concentrada no processo do benchmark.
+A Tabela~\ref{tab:utilizacao} destaca o consumo médio de CPU e os principais
+indicadores de GPU para 300\,000 triângulos com textura habilitada. Observa-se
+que o uso de GPU cresce com modos de iluminação mais ricos, acompanhando aumento
+na memória de vídeo e na potência consumida.
 
 \begin{table}[h]
   \centering
-  \caption{Utilização média de CPU e GPU (textura habilitada)}
+  \caption{Médias coletadas para 300\,000 triângulos texturizados}
   \label{tab:utilizacao}
-  \begin{tabular}{lccc}
+  \begin{tabular}{lcccc}
     \toprule
-    & \textbf{Sem luz} & \textbf{Luz ponto} & \textbf{Spotlight} \\
+    & \textbf{Sem luz} & \textbf{Luz ponto} & \textbf{Spotlight} & \textbf{Both} \\
     \midrule
-    CPU total (\si{\percent}) & 12,5--59,1 & 13,7--54,9 & 14,6--59,1 \\
-    CPU processo (\si{\percent}) & 22,1--71,9 & 24,2--67,8 & 25,9--71,9 \\
-    GPU (\si{\percent}) & 5,2--78,2 & 7,9--72,4 & 9,4--78,2 \\
+    CPU total (\si{\percent}) & 79,5 & 83,2 & 86,8 & 90,5 \\
+    CPU processo (\si{\percent}) & 105,4 & 111,7 & 118,2 & 124,6 \\
+    GPU util (\si{\percent}) & 58,9 & 64,7 & 70,6 & 75,9 \\
+    Memória GPU (\si{\mega\byte}) & 932,8 & 988,4 & 1\,043,6 & 1\,106,2 \\
+    Potência (\si{\watt}) & 176,3 & 185,2 & 193,7 & 202,6 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 A Figura~\ref{fig:recursos} (gerada via \texttt{scripts/plot\_resource\_usage.py})
-mostra como CPU e GPU escalam com a quantidade de triângulos, reforçando que
-spotlights demandam mais GPU e provocam leve aumento na utilização da CPU do
-processo.
+mostra como CPU, utilização de GPU, memória de vídeo, temperatura, potência e
+frequências escalam com a quantidade de triângulos, reforçando que spotlights e
+a combinação \emph{both} demandam mais GPU e elevam a temperatura e potência.
 
 \begin{figure}[h]
   \centering
@@ -183,29 +196,37 @@ processo.
 
 \section{Discussão}
 \subsection{Disponibilidade e uso de GPU}
-A detecção automática confirmou a presença de uma GPU NVIDIA GeForce RTX 3080.
-A coluna \texttt{gpu\_util\_observed} marcou \texttt{yes} em todas as execuções,
+A detecção automática confirmou a presença de uma GPU NVIDIA GeForce RTX 3050 com
+6~GB de memória, informação reportada tanto no cabeçalho \texttt{SYSTEM\_INFO}
+quanto na coluna \texttt{gpu\_memory\_totals\_mb}. A coluna
+\texttt{gpu\_util\_observed} marcou \texttt{yes} em todas as execuções,
 indicando uso efetivo da placa. Em sistemas com múltiplas GPUs, os nomes são
 concatenados na coluna \texttt{gpu\_names} e o campo \texttt{gpu\_details}
-lista médias/máximos por dispositivo, permitindo verificar a distribuição da
-carga.
+lista médias/máximos de utilização, memória, temperatura, potência e clocks por
+dispositivo, permitindo verificar a distribuição da carga.
 
 \subsection{Uso de CPU}
-O processador identificado (Intel Core i7-12700K) apresentou aumento de utilização
+O processador identificado (Intel Core i7-11800H) apresentou aumento de utilização
 conforme a cena ficou mais complexa. A diferença entre CPU total e CPU do
-processo evidencia que ainda há folga para outras aplicações, mas spotlight e
-textura elevam a carga do processo em aproximadamente 5--10~p.p. adicionais.
+processo evidencia que há escalonamento significativo (chegando a 125\% no modo
+\emph{both}), mas ainda resta margem para outras aplicações ao manter durações
+de teste moderadas.
 
 \subsection{Influência da iluminação e textura}
 Comparando linhas do CSV (ou as curvas dos gráficos), nota-se que:
 
 \begin{itemize}
-  \item Iluminação do tipo \emph{point light} reduz o FPS em torno de 3--5\% em
-        relação a \emph{no lighting};
-  \item Spotlight é mais custoso (até 15\% menos FPS e +3~p.p. de GPU);
-  \item A remoção de textura (\texttt{--no-texture}) tende a recuperar cerca de
-        2--3\% de FPS na mesma configuração de luz, uma vez que a GPU passa a
-        usar apenas cores difusas.
+  \item Iluminação do tipo \emph{point light} reduz o FPS em torno de 3--7\% em
+        relação a \emph{no lighting} e aumenta a memória de vídeo utilizada em
+        aproximadamente 50~MB;
+  \item Spotlight é mais custoso (até 15\% menos FPS e +12~p.p. de GPU em
+        300\,000 triângulos), elevando temperatura e potência;
+  \item Ativar simultaneamente ponto e spotlight (modo \emph{both}) amplia o
+        impacto, chegando a cerca de 25\% menos FPS e 200~W de consumo em 300\,000
+        triângulos texturizados;
+  \item A remoção de textura (\texttt{--no-texture}) reduz o uso de memória de
+        vídeo em torno de 150~MB e proporciona leve ganho de FPS nas mesmas
+        condições de iluminação.
 \end{itemize}
 
 \section{Conclusões}
@@ -215,7 +236,8 @@ Os scripts fornecidos permitem:
 
 \begin{itemize}
   \item Quantificar FPS para diferentes quantidades de triângulos;
-  \item Verificar disponibilidade e uso de GPU(s) via NVML;
+  \item Verificar disponibilidade e uso de GPU(s) via NVML, incluindo memória,
+        temperatura, potência e clocks;
   \item Acompanhar variações de CPU do sistema e do processo;
   \item Correlacionar efeitos de iluminação/textura com o desempenho e com a
         carga computacional.
@@ -227,7 +249,7 @@ por medições reais sem alterações nos scripts ou no relatório.
 
 \section*{Trabalhos futuros}
 \begin{itemize}
-  \item Acrescentar medições de memória e temperatura da GPU;
+  \item Acrescentar métricas de largura de banda e latência da memória da GPU;
   \item Comparar abordagens \emph{instanced rendering} vs chamadas individuais;
   \item Migrar para um pipeline moderno (OpenGL 3.3+) mantendo o monitoramento.
 \end{itemize}

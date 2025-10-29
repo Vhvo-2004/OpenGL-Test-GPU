@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import math
+
+import numpy as np
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -40,9 +43,6 @@ def load_data(path: Path) -> pd.DataFrame:
         "triangles",
         "lighting",
         "textured",
-        "cpu_percent_mean",
-        "process_cpu_percent_mean",
-        "gpu_util_mean",
     }
     missing = required.difference(data.columns)
     if missing:
@@ -51,7 +51,22 @@ def load_data(path: Path) -> pd.DataFrame:
     data["triangles"] = data["triangles"].astype(int)
     data["lighting"] = data["lighting"].astype(str)
     data["textured"] = data["textured"].astype(str)
-    for column in ["cpu_percent_mean", "process_cpu_percent_mean", "gpu_util_mean"]:
+
+    numeric_columns = [
+        "cpu_percent_mean",
+        "process_cpu_percent_mean",
+        "gpu_util_mean",
+        "gpu_mem_util_mean",
+        "gpu_mem_used_mb_mean",
+        "gpu_temp_c_mean",
+        "gpu_power_w_mean",
+        "gpu_sm_clock_mhz_mean",
+        "gpu_mem_clock_mhz_mean",
+    ]
+
+    for column in numeric_columns:
+        if column not in data.columns:
+            data[column] = float("nan")
         data[column] = pd.to_numeric(data[column], errors="coerce")
     return data
 
@@ -71,7 +86,54 @@ def plot(data: pd.DataFrame, output: Path, textured: str) -> None:
     if grouped.ngroups == 0:
         raise ValueError("No rows remain after applying the selected filters")
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharex=True)
+    metrics = [
+        (
+            "gpu_util_mean",
+            "GPU Utilisation",
+            "GPU utilisation (%)",
+        ),
+        (
+            "gpu_mem_util_mean",
+            "GPU Memory Utilisation",
+            "Memory utilisation (%)",
+        ),
+        (
+            "gpu_mem_used_mb_mean",
+            "GPU Memory Used",
+            "Memory used (MB)",
+        ),
+        (
+            "gpu_temp_c_mean",
+            "GPU Temperature",
+            "Temperature (°C)",
+        ),
+        (
+            "gpu_power_w_mean",
+            "GPU Power",
+            "Power draw (W)",
+        ),
+        (
+            "gpu_sm_clock_mhz_mean",
+            "GPU SM Clock",
+            "Frequency (MHz)",
+        ),
+        (
+            "gpu_mem_clock_mhz_mean",
+            "GPU Memory Clock",
+            "Frequency (MHz)",
+        ),
+    ]
+
+    available_metrics = [item for item in metrics if data[item[0]].notna().any()]
+
+    total_axes = 1 + len(available_metrics)
+    cols = min(3, total_axes)
+    rows = math.ceil(total_axes / cols)
+    fig, axes = plt.subplots(rows, cols, figsize=(5.5 * cols, 4.0 * rows), sharex=True)
+    if not isinstance(axes, (list, tuple, np.ndarray)):
+        axes = [axes]
+    else:
+        axes = list(np.array(axes).reshape(-1))
 
     title_suffix = {
         "yes": "Textured",
@@ -79,10 +141,11 @@ def plot(data: pd.DataFrame, output: Path, textured: str) -> None:
         "any": "All",
     }[textured]
 
+    cpu_axis = axes[0]
     for lighting, group in grouped:
         group = group.sort_values("triangles")
         if group["cpu_percent_mean"].notna().any():
-            axes[0].plot(
+            cpu_axis.plot(
                 group["triangles"],
                 group["cpu_percent_mean"],
                 marker="o",
@@ -90,7 +153,7 @@ def plot(data: pd.DataFrame, output: Path, textured: str) -> None:
                 label=f"{lighting} (system)",
             )
         if group["process_cpu_percent_mean"].notna().any():
-            axes[0].plot(
+            cpu_axis.plot(
                 group["triangles"],
                 group["process_cpu_percent_mean"],
                 marker="x",
@@ -98,26 +161,33 @@ def plot(data: pd.DataFrame, output: Path, textured: str) -> None:
                 linewidth=1.5,
                 label=f"{lighting} (process)",
             )
-        if group["gpu_util_mean"].notna().any():
-            axes[1].plot(
-                group["triangles"],
-                group["gpu_util_mean"],
-                marker="o",
-                linewidth=2,
-                label=lighting,
-            )
 
-    axes[0].set_title(f"CPU Utilisation ({title_suffix})")
-    axes[0].set_xlabel("Triangle count")
-    axes[0].set_ylabel("CPU utilisation (%)")
-    axes[0].grid(True, linestyle="--", alpha=0.4)
-    axes[0].legend()
+    cpu_axis.set_title(f"CPU Utilisation ({title_suffix})")
+    cpu_axis.set_xlabel("Triangle count")
+    cpu_axis.set_ylabel("CPU utilisation (%)")
+    cpu_axis.grid(True, linestyle="--", alpha=0.4)
+    cpu_axis.legend()
 
-    axes[1].set_title(f"GPU Utilisation ({title_suffix})")
-    axes[1].set_xlabel("Triangle count")
-    axes[1].set_ylabel("GPU utilisation (%)")
-    axes[1].grid(True, linestyle="--", alpha=0.4)
-    axes[1].legend()
+    for axis_index, (column, title, ylabel) in enumerate(available_metrics, start=1):
+        axis = axes[axis_index]
+        for lighting, group in grouped:
+            group = group.sort_values("triangles")
+            if group[column].notna().any():
+                axis.plot(
+                    group["triangles"],
+                    group[column],
+                    marker="o",
+                    linewidth=2,
+                    label=lighting,
+                )
+        axis.set_title(f"{title} ({title_suffix})")
+        axis.set_xlabel("Triangle count")
+        axis.set_ylabel(ylabel)
+        axis.grid(True, linestyle="--", alpha=0.4)
+        axis.legend()
+
+    for axis in axes[total_axes:]:
+        axis.remove()
 
     plt.tight_layout()
     output.parent.mkdir(parents=True, exist_ok=True)
