@@ -1,0 +1,9 @@
+build/
+*.log
+.DS_Store
+
+# Generated artefacts stay ignored, but allow checked-in documentation assets.
+data/
+plots/
+!docs/**/*.csv
+!docs/**/*.png
