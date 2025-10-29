@@ -1,0 +1,5 @@
+build/
+*.png
+*.csv
+*.log
+.DS_Store
