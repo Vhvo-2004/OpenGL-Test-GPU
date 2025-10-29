@@ -141,8 +141,6 @@ scripts/run_benchmark.py         # Benchmarks e coleta de métricas de CPU/GPU
 scripts/plot_fps.py              # Gera gráfico de FPS vs quantidade de triângulos
 scripts/plot_resource_usage.py   # Gera gráfico de CPU/GPU vs quantidade de triângulos
 requirements.txt                 # Dependências Python para os scripts
-docs/report.tex                  # Relatório em LaTeX/Overleaf com metodologia e resultados
-docs/sample_metrics.csv          # Exemplo de resultados agregados (texto)
 data/                            # Resultados e gráficos gerados (ignorado pelo Git)
 ```
 
