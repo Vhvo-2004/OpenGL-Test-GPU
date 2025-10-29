@@ -15,12 +15,21 @@
 
 namespace
 {
+enum class LightingMode
+{
+    None,
+    Point,
+    Spot
+};
+
 struct DemoConfig
 {
     int triangleCount = 1;
     bool benchmark = false;
     int benchmarkDurationMs = 10000;
     bool quiet = false;
+    bool textured = true;
+    LightingMode lighting = LightingMode::None;
 };
 
 struct Color
@@ -32,15 +41,17 @@ struct Color
 
 DemoConfig g_config{};
 float g_angleDegrees = 0.0f;
-std::chrono::steady_clock::time_point g_lastFrameTime;
-std::chrono::steady_clock::time_point g_lastFpsSample;
-std::chrono::steady_clock::time_point g_benchmarkStart;
+std::chrono::steady_clock::time_point g_lastFrameTime{};
+std::chrono::steady_clock::time_point g_lastFpsSample{};
+std::chrono::steady_clock::time_point g_benchmarkStart{};
 int g_frameCounter = 0;
 int g_windowId = 0;
 double g_fpsAccumulator = 0.0;
 int g_fpsSamples = 0;
 bool g_benchmarkFinished = false;
 std::vector<Color> g_palette;
+GLuint g_textureId = 0;
+bool g_textureReady = false;
 
 constexpr float kBaseTriangleRadius = 0.15f;
 constexpr float kTriangleRingRadius = 0.55f;
@@ -48,6 +59,33 @@ constexpr float kTriangleRingRadius = 0.55f;
 float toDegrees(float radians)
 {
     return radians * 180.0f / static_cast<float>(M_PI);
+}
+
+std::string lightingModeToString(LightingMode mode)
+{
+    switch (mode)
+    {
+    case LightingMode::Point:
+        return "point";
+    case LightingMode::Spot:
+        return "spot";
+    case LightingMode::None:
+    default:
+        return "none";
+    }
+}
+
+LightingMode parseLightingMode(const std::string &value)
+{
+    if (value == "point")
+    {
+        return LightingMode::Point;
+    }
+    if (value == "spot")
+    {
+        return LightingMode::Spot;
+    }
+    return LightingMode::None;
 }
 
 void ensurePaletteSize(std::size_t count)
@@ -63,9 +101,9 @@ void ensurePaletteSize(std::size_t count)
         const float t = static_cast<float>(i) / std::max<std::size_t>(1, count - 1);
         const float hue = std::fmod(t * 360.0f, 360.0f);
         const float rad = hue * static_cast<float>(M_PI) / 180.0f;
-        const float r = 0.5f + 0.5f * std::cos(rad);
-        const float g = 0.5f + 0.5f * std::cos(rad + 2.0f * static_cast<float>(M_PI) / 3.0f);
-        const float b = 0.5f + 0.5f * std::cos(rad + 4.0f * static_cast<float>(M_PI) / 3.0f);
+        const float r = 0.6f + 0.4f * std::cos(rad);
+        const float g = 0.6f + 0.4f * std::cos(rad + 2.0f * static_cast<float>(M_PI) / 3.0f);
+        const float b = 0.6f + 0.4f * std::cos(rad + 4.0f * static_cast<float>(M_PI) / 3.0f);
         g_palette.push_back(Color{r, g, b});
     }
 }
@@ -75,6 +113,8 @@ void updateWindowTitle(double fps)
 #ifdef FREEGLUT
     std::ostringstream oss;
     oss << "Rotating Triangles - N=" << g_config.triangleCount;
+    oss << " | lighting=" << lightingModeToString(g_config.lighting);
+    oss << (g_config.textured ? " | textured" : " | flat");
     if (fps > 0.0)
     {
         oss << " | FPS=" << std::fixed << std::setprecision(1) << fps;
@@ -95,8 +135,117 @@ void finalizeBenchmark()
 
     g_benchmarkFinished = true;
     double averageFps = (g_fpsSamples > 0) ? (g_fpsAccumulator / static_cast<double>(g_fpsSamples)) : 0.0;
-    std::cout << "FPS_RESULT triangles=" << g_config.triangleCount << ",avg_fps=" << averageFps << std::endl;
+    std::cout << "FPS_RESULT triangles=" << g_config.triangleCount
+              << ",lighting=" << lightingModeToString(g_config.lighting)
+              << ",textured=" << (g_config.textured ? 1 : 0)
+              << ",avg_fps=" << averageFps << std::endl;
     std::cout.flush();
+}
+
+void ensureTexture()
+{
+    if (g_textureReady)
+    {
+        return;
+    }
+
+    constexpr int size = 128;
+    constexpr int block = 16;
+    std::vector<unsigned char> data(static_cast<std::size_t>(size * size * 3));
+
+    for (int y = 0; y < size; ++y)
+    {
+        for (int x = 0; x < size; ++x)
+        {
+            const bool bright = ((x / block) + (y / block)) % 2 == 0;
+            const float gradient = static_cast<float>(y) / static_cast<float>(size - 1);
+            const unsigned char base = static_cast<unsigned char>(bright ? 180 : 40);
+            const unsigned char r = static_cast<unsigned char>(std::min(255.0f, base + 75.0f * gradient));
+            const unsigned char g = static_cast<unsigned char>(std::min(255.0f, base + 40.0f * (1.0f - gradient)));
+            const unsigned char b = static_cast<unsigned char>(std::min(255.0f, base + 100.0f * (0.5f - std::fabs(0.5f - gradient))));
+
+            const std::size_t index = static_cast<std::size_t>((y * size + x) * 3);
+            data[index] = r;
+            data[index + 1] = g;
+            data[index + 2] = b;
+        }
+    }
+
+    glGenTextures(1, &g_textureId);
+    glBindTexture(GL_TEXTURE_2D, g_textureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size, size, 0, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+    g_textureReady = true;
+}
+
+void applyLightingState()
+{
+    if (g_config.lighting == LightingMode::None)
+    {
+        glDisable(GL_LIGHTING);
+        glDisable(GL_LIGHT0);
+        glDisable(GL_LIGHT1);
+        return;
+    }
+
+    glEnable(GL_LIGHTING);
+    glEnable(GL_NORMALIZE);
+    glEnable(GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+
+    const GLfloat ambient[] = {0.15f, 0.15f, 0.18f, 1.0f};
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
+
+    if (g_config.lighting == LightingMode::Point)
+    {
+        const GLfloat position[] = {0.0f, 0.0f, 1.8f, 1.0f};
+        const GLfloat diffuse[] = {0.9f, 0.9f, 0.95f, 1.0f};
+        glEnable(GL_LIGHT0);
+        glDisable(GL_LIGHT1);
+        glLightfv(GL_LIGHT0, GL_POSITION, position);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, diffuse);
+    }
+    else
+    {
+        const GLfloat position[] = {0.0f, 0.0f, 2.2f, 1.0f};
+        const GLfloat direction[] = {0.0f, 0.0f, -1.0f};
+        const GLfloat diffuse[] = {0.95f, 0.9f, 0.7f, 1.0f};
+        glDisable(GL_LIGHT0);
+        glEnable(GL_LIGHT1);
+        glLightfv(GL_LIGHT1, GL_POSITION, position);
+        glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, direction);
+        glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 32.0f);
+        glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 12.0f);
+        glLightfv(GL_LIGHT1, GL_DIFFUSE, diffuse);
+        glLightfv(GL_LIGHT1, GL_SPECULAR, diffuse);
+    }
+}
+
+void initializeRenderState()
+{
+    glDisable(GL_DEPTH_TEST);
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if (g_config.textured)
+    {
+        ensureTexture();
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, g_textureId);
+    }
+    else
+    {
+        glDisable(GL_TEXTURE_2D);
+    }
+
+    applyLightingState();
 }
 
 void drawTriangle(float offsetAngleRadians, const Color &color)
@@ -111,10 +260,27 @@ void drawTriangle(float offsetAngleRadians, const Color &color)
 
     glColor3f(color.r, color.g, color.b);
 
+    if (g_config.textured)
+    {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, g_textureId);
+    }
+    else
+    {
+        glDisable(GL_TEXTURE_2D);
+    }
+
     glBegin(GL_TRIANGLES);
-    glVertex2f(0.0f, kBaseTriangleRadius);
-    glVertex2f(-kBaseTriangleRadius, -kBaseTriangleRadius);
-    glVertex2f(kBaseTriangleRadius, -kBaseTriangleRadius);
+    glNormal3f(0.0f, 0.0f, 1.0f);
+
+    glTexCoord2f(0.5f, 1.0f);
+    glVertex3f(0.0f, kBaseTriangleRadius, 0.0f);
+
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex3f(-kBaseTriangleRadius, -kBaseTriangleRadius, 0.0f);
+
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex3f(kBaseTriangleRadius, -kBaseTriangleRadius, 0.0f);
     glEnd();
 
     glPopMatrix();
@@ -135,6 +301,8 @@ void display()
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+
+    applyLightingState();
 
     ensurePaletteSize(static_cast<std::size_t>(g_config.triangleCount));
 
@@ -164,7 +332,10 @@ void display()
 
         if (g_config.benchmark && g_config.quiet)
         {
-            std::cout << "FPS_SAMPLE triangles=" << g_config.triangleCount << ",fps=" << fps << std::endl;
+            std::cout << "FPS_SAMPLE triangles=" << g_config.triangleCount
+                      << ",lighting=" << lightingModeToString(g_config.lighting)
+                      << ",textured=" << (g_config.textured ? 1 : 0)
+                      << ",fps=" << fps << std::endl;
             std::cout.flush();
         }
     }
@@ -238,6 +409,14 @@ void parseArguments(int argc, char **argv)
         {
             g_config.quiet = false;
         }
+        else if (arg == "--lighting" && i + 1 < argc)
+        {
+            g_config.lighting = parseLightingMode(argv[++i]);
+        }
+        else if (arg == "--no-texture")
+        {
+            g_config.textured = false;
+        }
         else if (arg == "--help")
         {
             std::cout << "Rotating triangle demo using GLUT" << std::endl;
@@ -246,6 +425,8 @@ void parseArguments(int argc, char **argv)
                       << "  --benchmark       Enable benchmark mode (non-interactive)\n"
                       << "  --duration <s>    Benchmark duration in seconds (default 10)\n"
                       << "  --show-log        Keep FPS logging on stdout during benchmark\n"
+                      << "  --lighting <mode> Lighting mode: none, point, spot (default none)\n"
+                      << "  --no-texture      Disable textured rendering\n"
                       << "  --help            Show this message\n";
             std::exit(EXIT_SUCCESS);
         }
@@ -271,7 +452,7 @@ int main(int argc, char **argv)
     glutIdleFunc(idle);
     glutReshapeFunc(reshape);
 
-    glDisable(GL_DEPTH_TEST);
+    initializeRenderState();
 
     g_lastFrameTime = std::chrono::steady_clock::now();
     g_lastFpsSample = g_lastFrameTime;
