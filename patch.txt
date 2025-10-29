@@ -1,0 +1,1170 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000000000000000000000000000000000000..41f0ce9373c19a03a9c32f54e4869685d64068e7
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,10 @@
++__pycache__/
++*.pyc
++.env
++.venv/
++.DS_Store
++*.log
++build/
++dist/
++.eggs/
++*.egg-info/
+diff --git a/README.md b/README.md
+index 722e4d737dc5714d37c2937f6b0100b7ecd0d6f7..c7fc1d2d62ea161fea50281a768fa1c694583937 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,58 @@
+-# OpenGL-Test-GPU
++# OpenGL Rotating Triangles Benchmark
++
++Este repositório contém uma aplicação OpenGL escrita em Python para analisar o impacto do número de triângulos texturizados e iluminados no FPS. Inclui scripts para coleta de métricas de hardware e geração de relatórios em \LaTeX.
++
++## Pré-requisitos
++
++1. Python 3.10+
++2. Dependências:
++
++```bash
++pip install -r requirements.txt
++```
++
++> \*\*Observação importante:\*\* a execução da aplicação requer suporte a OpenGL 3.3 ou superior, disponível apenas em ambientes com aceleração gráfica. Os testes não foram executados neste ambiente de desenvolvimento por ausência de GPU.
++
++## Executando a aplicação
++
++Para visualizar um triângulo girando com textura e iluminação omnidirecional:
++
++```bash
++python run_app.py
++```
++
++Parâmetros úteis:
++
++- `--triangles N`: define o número de triângulos renderizados.
++- `--light {omnidirectional,spot,directional}`: alterna o modo de iluminação.
++- `--benchmark`: encerra automaticamente após o tempo definido em `--duration` (segundos).
++- `--headless`: utiliza uma janela 1x1 para execuções remotas.
++
++## Benchmark automatizado
++
++```bash
++python scripts/run_benchmark.py --counts 1 10 25 50 100 250 --duration 10
++```
++
++Os resultados são gravados em `data/benchmark_results.json`. Use `scripts/plot_results.py` para gerar o gráfico `docs/figures/fps_vs_triangles.png`.
++
++## Coleta de informações de hardware
++
++```bash
++python scripts/system_probe.py
++```
++
++O comando tenta identificar CPU, GPUs disponíveis e estatísticas de utilização. Os resultados são salvos em `data/system_probe.json`.
++
++## Relatório
++
++O relatório em \LaTeX está em `docs/report.tex`, pronto para ser importado no Overleaf. Atualize a tabela e os gráficos após coletar dados reais.
++
++## Limitações conhecidas
++
++- Este repositório não inclui dados reais de FPS ou utilização de GPU/CPU devido à ausência de uma GPU no ambiente de desenvolvimento.
++- Alguns recursos (como captura de utilização em tempo real) dependem de ferramentas externas (`nvidia-smi`, `mpstat`).
++
++## Licença
++
++MIT
+diff --git a/assets/textures/triangle_diffuse.png b/assets/textures/triangle_diffuse.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..a8f18123fbbf7df5ee164499b62e796881588a07
+GIT binary patch
+literal 186
+zcmeAS@N?(olHy`uVBq!ia0vp^4j|0I1|(Ny7TyC=jh-%!Ar-gY-q<M0ARyp!P&;sq
+znyZG-8eS`fXKDg*35))lrLBMc#Y_75_g}R@^&rs6Soi<ITR8~l1kVB%MhLUIL5Kyy
+rdc)`?0AX!l*KmZe4#;6qxR3e9t%OZe^%#CIgH(CC`njxgN@xNAL7FXi
+
+literal 0
+HcmV?d00001
+
+diff --git a/data/benchmark_results.json b/data/benchmark_results.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..6c7ccb8c845f79b67249b52fd1c94e4a1e301fb1
+--- /dev/null
++++ b/data/benchmark_results.json
+@@ -0,0 +1,7 @@
++[
++  {"triangles": 1, "fps_mean": 0.0, "fps_std": 0.0},
++  {"triangles": 10, "fps_mean": 0.0, "fps_std": 0.0},
++  {"triangles": 25, "fps_mean": 0.0, "fps_std": 0.0},
++  {"triangles": 50, "fps_mean": 0.0, "fps_std": 0.0},
++  {"triangles": 100, "fps_mean": 0.0, "fps_std": 0.0}
++]
+diff --git a/data/system_probe.json b/data/system_probe.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..bb283f73e7d4ce2812402cb3e9fd2642ceeb80fe
+--- /dev/null
++++ b/data/system_probe.json
+@@ -0,0 +1,12 @@
++{
++  "cpu": {
++    "processor": "unknown",
++    "note": "A coleta deve ser executada em uma máquina com acesso a lscpu/mpstat para resultados reais."
++  },
++  "gpus": {
++    "available": false,
++    "details": [],
++    "note": "nvidia-smi não estava disponível no ambiente de desenvolvimento."
++  },
++  "usage": {}
++}
+diff --git a/docs/figures/fps_vs_triangles.png b/docs/figures/fps_vs_triangles.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0303635a0a6217352e34a80fc34e42287a1d50a
+GIT binary patch
+literal 2052
+zcmeAS@N?(olHy`uVBq!ia0y~yV4MJCr*N<U$uHcF1`G^Le?46sLn`LHy<o`5z`$|9
+g;K2Sb!4W{|Q7{?;qaiRF0;3@?8UmvsFmyuz0F99ji2wiq
+
+literal 0
+HcmV?d00001
+
+diff --git a/docs/report.tex b/docs/report.tex
+new file mode 100644
+index 0000000000000000000000000000000000000000..c4ad9c46df8ede109aff980caf29f1a00804e6d8
+--- /dev/null
++++ b/docs/report.tex
+@@ -0,0 +1,79 @@
++\documentclass[12pt,a4paper]{article}
++\usepackage[utf8]{inputenc}
++\usepackage{graphicx}
++\usepackage{booktabs}
++\usepackage{geometry}
++\geometry{margin=2.5cm}
++
++\title{Estudo de Desempenho com Triângulos OpenGL}
++\author{Equipe de Desenvolvimento OpenGL-Test-GPU}
++\date{\today}
++
++\begin{document}
++
++\maketitle
++
++\section{Objetivo}
++Este trabalho tem como objetivo implementar uma cena em OpenGL com triângulos texturizados e iluminados, avaliar o impacto da quantidade de triângulos no desempenho (FPS) e observar possíveis mudanças na utilização de GPU e CPU ao variar fontes de luz omnidirecional e spot.
++
++\section{Metodologia}
++\subsection{Aplicação OpenGL}
++Foi desenvolvida uma aplicação em Python utilizando \texttt{PyOpenGL} e \texttt{pygame} para gerenciar o contexto OpenGL. A cena base contém triângulos texturizados, com shader de iluminação que suporta três modos: luz omnidirecional, spot e direcional. A aplicação permite ajustar a quantidade de triângulos, ativar diferentes modos de luz e realizar benchmarks automáticos.
++
++\subsection{Coleta de Dados}
++Dois scripts auxiliares foram criados:
++\begin{itemize}
++    \item \texttt{scripts/run\_benchmark.py}: executa a aplicação em modo benchmark para uma lista de quantidades de triângulos e salva as médias de FPS em JSON.
++    \item \texttt{scripts/system\_probe.py}: tenta coletar informações de CPU/GPU e utilização instantânea através de ferramentas como \texttt{nvidia-smi}, \texttt{lspci} e \texttt{mpstat}.
++\end{itemize}
++
++\subsection{Limitações do Ambiente}
++O ambiente de desenvolvimento utilizado nesta entrega não disponibiliza acesso direto a uma GPU dedicada ou a comandos como \texttt{nvidia-smi}. Dessa forma, os resultados numéricos anexados são marcadores de posição e precisam ser substituídos por dados coletados em uma máquina local com suporte gráfico. Os gráficos foram mantidos como parte do pipeline de análise para facilitar a reprodução quando houver acesso ao hardware adequado.
++
++\section{Resultados}
++\subsection{Métricas de FPS}
++A Tabela~\ref{tab:fps} apresenta o formato de dados esperado após a execução do benchmark. Os valores atuais são nulos apenas para ilustrar a estrutura do relatório.
++
++\begin{table}[h]
++    \centering
++    \begin{tabular}{@{}lcc@{}}
++        \toprule
++        Triângulos & FPS médio & Desvio padrão \\
++        \midrule
++        1 & 0.0 & 0.0 \\
++        10 & 0.0 & 0.0 \\
++        25 & 0.0 & 0.0 \\
++        50 & 0.0 & 0.0 \\
++        100 & 0.0 & 0.0 \\
++        \bottomrule
++    \end{tabular}
++    \caption{Modelo de resultados esperado. Substitua pelos dados coletados.}
++    \label{tab:fps}
++\end{table}
++
++O script \texttt{scripts/plot\_results.py} gera o gráfico mostrado na Figura~\ref{fig:fps}. Quando dados reais forem coletados, o gráfico refletirá a queda de FPS com o aumento de triângulos.
++
++\begin{figure}[h]
++    \centering
++    \includegraphics[width=0.8\textwidth]{figures/fps_vs_triangles.png}
++    \caption{FPS médio vs. quantidade de triângulos (gráfico a ser atualizado com dados reais).}
++    \label{fig:fps}
++\end{figure}
++
++\subsection{Informações de Hardware}
++O arquivo \texttt{data/system\_probe.json} será preenchido com as GPUs detectadas, se disponíveis. No ambiente atual não houve detecção de GPU, portanto nenhuma variação de uso foi observada. O mesmo se aplica à porcentagem de uso do processador: recomenda-se executar o script em um ambiente local equipado com \texttt{mpstat} para coletar a estatística desejada.
++
++\section{Conclusões}
++Apesar das limitações do ambiente sem GPU dedicada, a aplicação está pronta para ser executada e analisada em uma máquina apropriada. Recomenda-se:
++\begin{itemize}
++    \item Executar \texttt{scripts/run\_benchmark.py} para coletar FPS reais em diferentes quantidades de triângulos e modos de iluminação.
++    \item Utilizar \texttt{scripts/system\_probe.py} antes e durante os testes para registrar o modelo de GPU/CPU e sua utilização.
++    \item Atualizar os gráficos e a tabela com os valores coletados para comparar o impacto entre luz omnidirecional e spot.
++\end{itemize}
++
++Os resultados esperados incluem a redução do FPS ao aumentar o número de triângulos e possível elevação no uso da GPU em comparação à CPU, especialmente ao ativar iluminação spot, que demanda cálculos adicionais por fragmento.
++
++\section{Trabalhos Futuros}
++Como próximos passos, sugere-se avaliar técnicas de instancing para desenhar grandes quantidades de triângulos com menor custo de CPU, incluir medição de tempo de CPU e GPU via \texttt{glQueryCounter}, e expandir o estudo para outras texturas e modelos de iluminação.
++
++\end{document}
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..deefccad7485ad6d4bff826afa074db143f21f60
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1,5 @@
++numpy
++pygame
++PyOpenGL
++matplotlib
++Pillow
+diff --git a/run_app.py b/run_app.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..bd3c472e81dec3657c04064c8c8a23a25580a676
+--- /dev/null
++++ b/run_app.py
+@@ -0,0 +1,58 @@
++"""Entry point for running the OpenGL rotating triangles demo."""
++from __future__ import annotations
++
++import argparse
++from pathlib import Path
++
++from src.opengl_app import AppConfig, OpenGLApp
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--triangles", type=int, default=1, help="Number of triangles to render")
++    parser.add_argument(
++        "--light",
++        choices=["omnidirectional", "spot", "directional"],
++        default="omnidirectional",
++        help="Lighting configuration",
++    )
++    parser.add_argument(
++        "--texture",
++        type=Path,
++        default=Path("assets/textures/triangle_diffuse.png"),
++        help="Path to texture image",
++    )
++    parser.add_argument("--width", type=int, default=1024, help="Window width")
++    parser.add_argument("--height", type=int, default=768, help="Window height")
++    parser.add_argument("--duration", type=float, default=10.0, help="Benchmark duration in seconds")
++    parser.add_argument(
++        "--benchmark",
++        action="store_true",
++        help="Run in benchmark mode and exit after the given duration",
++    )
++    parser.add_argument(
++        "--headless",
++        action="store_true",
++        help="Initialize the OpenGL context with a 1x1 hidden window (useful for remote runs)",
++    )
++    return parser.parse_args()
++
++
++def main() -> None:
++    args = parse_args()
++    config = AppConfig(
++        triangles=args.triangles,
++        light_mode=args.light,
++        texture_path=args.texture,
++        width=args.width,
++        height=args.height,
++        benchmark_duration=args.duration,
++        benchmark=args.benchmark,
++        headless=args.headless,
++    )
++    app = OpenGLApp(config)
++    app.run()
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/plot_results.py b/scripts/plot_results.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..c00f5ae65d526bbfcee065638e62083872a8fe23
+--- /dev/null
++++ b/scripts/plot_results.py
+@@ -0,0 +1,39 @@
++"""Generate FPS plots based on recorded benchmark data."""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import matplotlib.pyplot as plt
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--input", type=Path, default=Path("data/benchmark_results.json"))
++    parser.add_argument("--output", type=Path, default=Path("docs/figures/fps_vs_triangles.png"))
++    return parser.parse_args()
++
++
++def main() -> None:
++    args = parse_args()
++    with args.input.open("r", encoding="utf-8") as handle:
++        data = json.load(handle)
++
++    triangles = [entry["triangles"] for entry in data]
++    fps_mean = [entry["fps_mean"] for entry in data]
++    fps_std = [entry.get("fps_std", 0.0) for entry in data]
++
++    plt.figure(figsize=(8, 5))
++    plt.errorbar(triangles, fps_mean, yerr=fps_std, fmt="-o", capsize=5, color="#2b6cb0")
++    plt.title("FPS médio vs. quantidade de triângulos")
++    plt.xlabel("Quantidade de triângulos")
++    plt.ylabel("FPS médio")
++    plt.grid(True, linestyle="--", alpha=0.4)
++    args.output.parent.mkdir(parents=True, exist_ok=True)
++    plt.savefig(args.output, dpi=150, bbox_inches="tight")
++    print(f"Gráfico salvo em {args.output}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/run_benchmark.py b/scripts/run_benchmark.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..153f8e2388505445f1190da6e8de0f54726d0001
+--- /dev/null
++++ b/scripts/run_benchmark.py
+@@ -0,0 +1,51 @@
++"""Run FPS benchmarks for multiple triangle counts."""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++from src.opengl_app import AppConfig, OpenGLApp
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--counts",
++        type=int,
++        nargs="+",
++        default=[1, 10, 25, 50, 100, 250, 500],
++        help="Triangle counts to benchmark",
++    )
++    parser.add_argument("--duration", type=float, default=8.0, help="Duration per test in seconds")
++    parser.add_argument("--headless", action="store_true", help="Run with hidden 1x1 window")
++    parser.add_argument("--output", type=Path, default=Path("data/benchmark_results.json"))
++    parser.add_argument(
++        "--light",
++        choices=["omnidirectional", "spot", "directional"],
++        default="omnidirectional",
++    )
++    parser.add_argument("--width", type=int, default=1024)
++    parser.add_argument("--height", type=int, default=768)
++    return parser.parse_args()
++
++
++def main() -> None:
++    args = parse_args()
++    config = AppConfig(
++        width=args.width,
++        height=args.height,
++        light_mode=args.light,
++        benchmark=True,
++        benchmark_duration=args.duration,
++        headless=args.headless,
++    )
++    app = OpenGLApp(config)
++    results = app.run_benchmark(args.counts)
++    args.output.parent.mkdir(parents=True, exist_ok=True)
++    app.save_results(args.output, results)
++    print(json.dumps(results, indent=2))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/system_probe.py b/scripts/system_probe.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f08ea6c8350755bd8187cfbab32ca86bf674e991
+--- /dev/null
++++ b/scripts/system_probe.py
+@@ -0,0 +1,89 @@
++"""Collect GPU and CPU usage statistics using available tools."""
++from __future__ import annotations
++
++import argparse
++import json
++import platform
++import shutil
++import subprocess
++from pathlib import Path
++from typing import Any
++
++
++def run_command(command: list[str]) -> tuple[int, str, str]:
++    process = subprocess.run(command, capture_output=True, text=True, check=False)
++    return process.returncode, process.stdout.strip(), process.stderr.strip()
++
++
++def detect_gpus() -> dict[str, Any]:
++    """Attempt to detect GPUs using nvidia-smi or lspci."""
++    result: dict[str, Any] = {"available": False, "details": []}
++    if shutil.which("nvidia-smi"):
++        code, stdout, stderr = run_command(["nvidia-smi", "--query-gpu=name,index,memory.total", "--format=csv"])
++        if code == 0:
++            lines = stdout.splitlines()[1:]
++            result["available"] = True
++            result["details"] = [line.strip() for line in lines]
++        else:
++            result["error"] = stderr
++    else:
++        # Try lspci as a fallback to list display controllers
++        if shutil.which("lspci"):
++            code, stdout, _ = run_command(["lspci"])
++            if code == 0:
++                gpus = [line for line in stdout.splitlines() if "VGA" in line or "3D controller" in line]
++                if gpus:
++                    result["available"] = True
++                    result["details"] = gpus
++    return result
++
++
++def detect_cpu() -> dict[str, Any]:
++    info: dict[str, Any] = {"processor": platform.processor() or platform.machine()}
++    if shutil.which("lscpu"):
++        code, stdout, _ = run_command(["lscpu"])
++        if code == 0:
++            info["lscpu"] = stdout
++    return info
++
++
++def collect_usage() -> dict[str, Any]:
++    """Gather instantaneous GPU/CPU usage metrics when possible."""
++    usage: dict[str, Any] = {}
++    if shutil.which("nvidia-smi"):
++        code, stdout, stderr = run_command([
++            "nvidia-smi",
++            "--query-gpu=utilization.gpu,utilization.memory",
++            "--format=csv,nounits",
++        ])
++        if code == 0:
++            usage["gpu"] = stdout.splitlines()[1:]
++        else:
++            usage["gpu_error"] = stderr
++    if shutil.which("mpstat"):
++        code, stdout, stderr = run_command(["mpstat", "1", "1"])
++        if code == 0:
++            usage["cpu"] = stdout
++        else:
++            usage["cpu_error"] = stderr
++    return usage
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--output", type=Path, default=Path("data/system_probe.json"))
++    args = parser.parse_args()
++
++    payload = {
++        "cpu": detect_cpu(),
++        "gpus": detect_gpus(),
++        "usage": collect_usage(),
++    }
++
++    args.output.parent.mkdir(parents=True, exist_ok=True)
++    args.output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
++    print(json.dumps(payload, indent=2))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/src/opengl_app/__init__.py b/src/opengl_app/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..10c15ae81b522b6824dd1673b9e0b6f4315cc289
+--- /dev/null
++++ b/src/opengl_app/__init__.py
+@@ -0,0 +1,11 @@
++"""OpenGL visualization and benchmarking utilities."""
++
++__all__ = [
++    "TriangleScene",
++    "AppConfig",
++    "OpenGLApp",
++    "generate_triangle_instances",
++]
++
++from .app import OpenGLApp, AppConfig
++from .scene import TriangleScene, generate_triangle_instances
+diff --git a/src/opengl_app/app.py b/src/opengl_app/app.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..aea511037c470738fbcf8044154bab9bfe0c6226
+--- /dev/null
++++ b/src/opengl_app/app.py
+@@ -0,0 +1,166 @@
++"""Interactive OpenGL application and benchmarking helpers."""
++from __future__ import annotations
++
++import json
++import time
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Iterable, Optional
++
++import numpy as np
++import pygame
++from OpenGL import GL
++
++from .scene import TriangleScene
++
++
++@dataclass
++class AppConfig:
++    """Runtime configuration for the OpenGL application."""
++
++    width: int = 1024
++    height: int = 768
++    triangles: int = 1
++    light_mode: str = "omnidirectional"
++    texture_path: Path = Path("assets/textures/triangle_diffuse.png")
++    rotation_speed: float = 45.0
++    target_fps: int = 60
++    benchmark_duration: float = 10.0
++    benchmark: bool = False
++    headless: bool = False
++
++
++class FPSCounter:
++    """Track instantaneous and average FPS over a sliding window."""
++
++    def __init__(self, window_seconds: float = 5.0) -> None:
++        self.window_seconds = window_seconds
++        self.frame_times: list[float] = []
++
++    def update(self, frame_time: float) -> None:
++        now = time.perf_counter()
++        self.frame_times.append(now)
++        while self.frame_times and now - self.frame_times[0] > self.window_seconds:
++            self.frame_times.pop(0)
++
++    @property
++    def fps(self) -> float:
++        if len(self.frame_times) < 2:
++            return 0.0
++        duration = self.frame_times[-1] - self.frame_times[0]
++        return (len(self.frame_times) - 1) / duration if duration > 0 else 0.0
++
++
++class OpenGLApp:
++    """Main application harness for rendering and benchmarking."""
++
++    def __init__(self, config: AppConfig) -> None:
++        self.config = config
++        self.scene: Optional[TriangleScene] = None
++        self.clock = pygame.time.Clock()
++        self.fps_counter = FPSCounter()
++        self._running = False
++        self._frame_times: list[float] = []
++
++    def _init_pygame(self) -> None:
++        pygame.init()
++        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
++        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
++        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
++        pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
++        pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, 4)
++        flags = pygame.OPENGL | pygame.DOUBLEBUF
++        if self.config.headless:
++            pygame.display.set_mode((1, 1), flags)
++        else:
++            pygame.display.set_mode((self.config.width, self.config.height), flags)
++        pygame.display.set_caption("OpenGL Rotating Triangles")
++        GL.glEnable(GL.GL_DEPTH_TEST)
++        GL.glEnable(GL.GL_CULL_FACE)
++        GL.glEnable(GL.GL_MULTISAMPLE)
++
++    def _create_scene(self) -> None:
++        self.scene = TriangleScene(
++            triangle_count=self.config.triangles,
++            texture_path=self.config.texture_path,
++            light_mode=self.config.light_mode,
++            rotation_speed=self.config.rotation_speed,
++        )
++
++    def _handle_events(self) -> None:
++        for event in pygame.event.get():
++            if event.type == pygame.QUIT:
++                self._running = False
++            elif event.type == pygame.KEYDOWN:
++                if event.key == pygame.K_ESCAPE:
++                    self._running = False
++                elif event.key == pygame.K_1:
++                    self.scene.light_mode = "omnidirectional"
++                elif event.key == pygame.K_2:
++                    self.scene.light_mode = "spot"
++                elif event.key == pygame.K_3:
++                    self.scene.light_mode = "directional"
++
++    def run(self) -> None:
++        self._init_pygame()
++        self._create_scene()
++        self._running = True
++        start_time = time.perf_counter()
++        try:
++            while self._running:
++                self._handle_events()
++                dt = self.clock.tick(self.config.target_fps) / 1000.0
++                if self.scene:
++                    self.scene.update(dt)
++
++                GL.glViewport(0, 0, self.config.width, self.config.height)
++                GL.glClearColor(0.1, 0.12, 0.18, 1.0)
++                GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
++                if self.scene:
++                    self.scene.render(self.config.width, self.config.height)
++                pygame.display.flip()
++
++                now = time.perf_counter()
++                self.fps_counter.update(now)
++                self._frame_times.append(self.clock.get_fps())
++
++                if self.config.benchmark and (now - start_time) > self.config.benchmark_duration:
++                    self._running = False
++        finally:
++            if self.scene:
++                self.scene.dispose()
++            pygame.quit()
++
++    def run_benchmark(self, triangle_counts: Iterable[int]) -> list[dict[str, float]]:
++        """Run automated benchmark over triangle counts and return FPS stats."""
++        results = []
++        for count in triangle_counts:
++            config = AppConfig(
++                width=self.config.width,
++                height=self.config.height,
++                triangles=count,
++                light_mode=self.config.light_mode,
++                texture_path=self.config.texture_path,
++                rotation_speed=self.config.rotation_speed,
++                target_fps=self.config.target_fps,
++                benchmark_duration=self.config.benchmark_duration,
++                benchmark=True,
++                headless=self.config.headless,
++            )
++            app = OpenGLApp(config)
++            app.run()
++            fps_values = [fps for fps in app._frame_times if fps > 0]
++            if fps_values:
++                mean_fps = float(np.mean(fps_values))
++                std_fps = float(np.std(fps_values))
++            else:
++                mean_fps = 0.0
++                std_fps = 0.0
++            results.append({"triangles": count, "fps_mean": mean_fps, "fps_std": std_fps})
++        return results
++
++    @staticmethod
++    def save_results(path: Path, results: Iterable[dict[str, float]]) -> None:
++        data = list(results)
++        with path.open("w", encoding="utf-8") as handle:
++            json.dump(data, handle, indent=2)
+diff --git a/src/opengl_app/scene.py b/src/opengl_app/scene.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..39ce8321078ebbcdbf0adceeb599965349ab96f9
+--- /dev/null
++++ b/src/opengl_app/scene.py
+@@ -0,0 +1,353 @@
++"""Scene management for rendering rotating textured triangles."""
++from __future__ import annotations
++
++import math
++from dataclasses import dataclass, field
++from pathlib import Path
++from typing import Iterable, Tuple
++
++import numpy as np
++from OpenGL import GL
++
++from .shaders import ShaderCompilationError, compile_shader_program
++from .textures import Texture, load_texture
++
++
++@dataclass
++class TriangleInstance:
++    """Describe the translation applied to an individual triangle."""
++
++    position: Tuple[float, float, float]
++
++
++def generate_triangle_instances(count: int, radius_step: float = 0.4) -> Iterable[TriangleInstance]:
++    """Generate instance offsets arranging triangles in expanding circles."""
++    if count <= 0:
++        return []
++    instances: list[TriangleInstance] = []
++    remaining = count
++    radius = 0.0
++    ring = 0
++    while remaining > 0:
++        ring += 1
++        radius += radius_step
++        ring_capacity = max(1, int(6 * ring))
++        items = min(remaining, ring_capacity)
++        for index in range(items):
++            angle = 2.0 * math.pi * (index / items)
++            x = radius * math.cos(angle)
++            y = radius * math.sin(angle)
++            instances.append(TriangleInstance(position=(x, y, 0.0)))
++        remaining -= items
++    return instances
++
++
++VERTEX_SHADER = """
++#version 330 core
++layout (location = 0) in vec3 in_position;
++layout (location = 1) in vec3 in_normal;
++layout (location = 2) in vec2 in_uv;
++layout (location = 3) in vec3 in_color;
++
++uniform mat4 u_model;
++uniform mat4 u_view;
++uniform mat4 u_projection;
++uniform vec3 u_light_pos;
++uniform vec3 u_light_color;
++uniform vec3 u_view_pos;
++uniform int u_light_type; // 0=directional,1=point,2=spot
++uniform vec3 u_spot_direction;
++uniform float u_spot_cutoff;
++
++out vec3 frag_color;
++out vec3 frag_normal;
++out vec3 frag_pos;
++out vec2 frag_uv;
++
++void main() {
++    vec4 world_pos = u_model * vec4(in_position, 1.0);
++    gl_Position = u_projection * u_view * world_pos;
++    frag_pos = world_pos.xyz;
++    frag_normal = mat3(transpose(inverse(u_model))) * in_normal;
++    frag_uv = in_uv;
++    frag_color = in_color;
++}
++"""
++
++FRAGMENT_SHADER = """
++#version 330 core
++in vec3 frag_color;
++in vec3 frag_normal;
++in vec3 frag_pos;
++in vec2 frag_uv;
++
++uniform sampler2D u_texture0;
++uniform vec3 u_light_color;
++uniform vec3 u_light_pos;
++uniform int u_light_type; // 0=directional,1=point,2=spot
++uniform vec3 u_spot_direction;
++uniform float u_spot_cutoff;
++uniform vec3 u_view_pos;
++
++out vec4 out_color;
++
++void main() {
++    vec3 norm = normalize(frag_normal);
++    vec3 light_dir;
++    float attenuation = 1.0;
++    if (u_light_type == 0) {
++        light_dir = normalize(-u_light_pos);
++    } else {
++        light_dir = normalize(u_light_pos - frag_pos);
++        float distance = length(u_light_pos - frag_pos);
++        attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
++        if (u_light_type == 2) {
++            float theta = dot(light_dir, normalize(-u_spot_direction));
++            attenuation *= smoothstep(u_spot_cutoff, u_spot_cutoff + 0.05, theta);
++        }
++    }
++
++    float diff = max(dot(norm, light_dir), 0.0);
++    vec3 view_dir = normalize(u_view_pos - frag_pos);
++    vec3 reflect_dir = reflect(-light_dir, norm);
++    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 16.0);
++
++    vec3 tex_color = texture(u_texture0, frag_uv).rgb;
++    vec3 ambient = 0.2 * tex_color;
++    vec3 diffuse = diff * tex_color;
++    vec3 specular = spec * vec3(0.5);
++
++    vec3 result = (ambient + diffuse + specular) * frag_color * u_light_color * attenuation;
++    out_color = vec4(result, 1.0);
++}
++"""
++
++
++@dataclass
++class TriangleScene:
++    """Manage GPU resources necessary for rendering textured triangles."""
++
++    triangle_count: int
++    texture_path: Path
++    light_mode: str = "omnidirectional"  # "omnidirectional", "spot", "directional"
++    rotation_speed: float = 45.0
++    size: float = 0.5
++    shader_program: int | None = field(init=False, default=None)
++    vao: int | None = field(init=False, default=None)
++    vbo: int | None = field(init=False, default=None)
++    ebo: int | None = field(init=False, default=None)
++    texture: Texture | None = field(init=False, default=None)
++    angle: float = field(init=False, default=0.0)
++
++    def __post_init__(self) -> None:
++        self.instances = list(generate_triangle_instances(self.triangle_count)) or [
++            TriangleInstance(position=(0.0, 0.0, 0.0))
++        ]
++        try:
++            self.shader_program = compile_shader_program(VERTEX_SHADER, FRAGMENT_SHADER)
++        except ShaderCompilationError as exc:
++            raise RuntimeError(f"Failed to compile shaders: {exc}")
++        self._build_geometry()
++        self.texture = load_texture(self.texture_path)
++
++    def _build_geometry(self) -> None:
++        vertices = []
++        indices = []
++        base_positions = [
++            np.array([-self.size, -self.size, 0.0], dtype=np.float32),
++            np.array([self.size, -self.size, 0.0], dtype=np.float32),
++            np.array([0.0, self.size, 0.0], dtype=np.float32),
++        ]
++        normals = [np.array([0.0, 0.0, 1.0], dtype=np.float32)] * 3
++        uvs = [
++            np.array([0.0, 0.0], dtype=np.float32),
++            np.array([1.0, 0.0], dtype=np.float32),
++            np.array([0.5, 1.0], dtype=np.float32),
++        ]
++        colors = [
++            np.array([1.0, 0.5, 0.2], dtype=np.float32),
++            np.array([0.2, 0.6, 1.0], dtype=np.float32),
++            np.array([0.9, 0.9, 0.4], dtype=np.float32),
++        ]
++        vertex_index = 0
++        for instance in self.instances:
++            offset = np.array(instance.position, dtype=np.float32)
++            for pos, normal, uv, color in zip(base_positions, normals, uvs, colors):
++                vertices.extend((pos + offset).tolist())
++                vertices.extend(normal.tolist())
++                vertices.extend(uv.tolist())
++                vertices.extend(color.tolist())
++            indices.extend(
++                [
++                    vertex_index,
++                    vertex_index + 1,
++                    vertex_index + 2,
++                ]
++            )
++            vertex_index += 3
++        vertex_data = np.array(vertices, dtype=np.float32)
++        index_data = np.array(indices, dtype=np.uint32)
++
++        self.vao = GL.glGenVertexArrays(1)
++        self.vbo = GL.glGenBuffers(1)
++        self.ebo = GL.glGenBuffers(1)
++
++        GL.glBindVertexArray(self.vao)
++        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
++        GL.glBufferData(GL.GL_ARRAY_BUFFER, vertex_data.nbytes, vertex_data, GL.GL_STATIC_DRAW)
++
++        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
++        GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, index_data.nbytes, index_data, GL.GL_STATIC_DRAW)
++
++        stride = 11 * 4
++        GL.glEnableVertexAttribArray(0)
++        GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, stride, ctypes.c_void_p(0))
++        GL.glEnableVertexAttribArray(1)
++        GL.glVertexAttribPointer(1, 3, GL.GL_FLOAT, GL.GL_FALSE, stride, ctypes.c_void_p(12))
++        GL.glEnableVertexAttribArray(2)
++        GL.glVertexAttribPointer(2, 2, GL.GL_FLOAT, GL.GL_FALSE, stride, ctypes.c_void_p(24))
++        GL.glEnableVertexAttribArray(3)
++        GL.glVertexAttribPointer(3, 3, GL.GL_FLOAT, GL.GL_FALSE, stride, ctypes.c_void_p(32))
++
++        GL.glBindVertexArray(0)
++        self.index_count = len(indices)
++
++    def update(self, dt: float) -> None:
++        self.angle = (self.angle + self.rotation_speed * dt) % 360.0
++
++    def _light_uniforms(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
++        light_color = np.array([1.0, 1.0, 1.0], dtype=np.float32)
++        if self.light_mode == "directional":
++            light_pos = np.array([-0.3, -0.8, -1.0], dtype=np.float32)
++            light_type = 0
++            spot_direction = np.array([0.0, 0.0, -1.0], dtype=np.float32)
++            spot_cutoff = -1.0
++        elif self.light_mode == "spot":
++            light_pos = np.array([0.0, 0.0, 2.5], dtype=np.float32)
++            light_type = 2
++            spot_direction = np.array([0.0, 0.0, -1.0], dtype=np.float32)
++            spot_cutoff = math.cos(math.radians(25.0))
++        else:
++            light_pos = np.array([2.5, 2.5, 2.5], dtype=np.float32)
++            light_type = 1
++            spot_direction = np.array([0.0, -1.0, 0.0], dtype=np.float32)
++            spot_cutoff = math.cos(math.radians(12.5))
++        return light_pos, light_color, spot_direction, spot_cutoff, light_type
++
++    def render(self, width: int, height: int) -> None:
++        if not self.shader_program or not self.texture or not self.vao:
++            return
++        GL.glUseProgram(self.shader_program)
++        aspect = width / max(1, height)
++
++        projection = _perspective(math.radians(45.0), aspect, 0.1, 100.0)
++        view = _look_at(
++            eye=np.array([0.0, 0.0, 8.0], dtype=np.float32),
++            target=np.array([0.0, 0.0, 0.0], dtype=np.float32),
++            up=np.array([0.0, 1.0, 0.0], dtype=np.float32),
++        )
++        model = _rotation_matrix(self.angle, axis=np.array([0.0, 0.0, 1.0], dtype=np.float32))
++
++        self.texture.bind(0)
++
++        _set_uniform_mat4(self.shader_program, "u_projection", projection)
++        _set_uniform_mat4(self.shader_program, "u_view", view)
++        _set_uniform_mat4(self.shader_program, "u_model", model)
++        _set_uniform_vec3(self.shader_program, "u_view_pos", np.array([0.0, 0.0, 8.0], dtype=np.float32))
++        light_pos, light_color, spot_direction, spot_cutoff, light_type = self._light_uniforms()
++        _set_uniform_vec3(self.shader_program, "u_light_pos", light_pos)
++        _set_uniform_vec3(self.shader_program, "u_light_color", light_color)
++        _set_uniform_vec3(self.shader_program, "u_spot_direction", spot_direction)
++        _set_uniform_float(self.shader_program, "u_spot_cutoff", spot_cutoff)
++        _set_uniform_int(self.shader_program, "u_light_type", light_type)
++        _set_uniform_int(self.shader_program, "u_texture0", 0)
++
++        GL.glBindVertexArray(self.vao)
++        GL.glDrawElements(GL.GL_TRIANGLES, self.index_count, GL.GL_UNSIGNED_INT, None)
++        GL.glBindVertexArray(0)
++
++    def dispose(self) -> None:
++        if self.texture:
++            GL.glDeleteTextures(int(self.texture.handle))
++            self.texture = None
++        if self.vbo:
++            GL.glDeleteBuffers(1, [self.vbo])
++            self.vbo = None
++        if self.ebo:
++            GL.glDeleteBuffers(1, [self.ebo])
++            self.ebo = None
++        if self.vao:
++            GL.glDeleteVertexArrays(1, [self.vao])
++            self.vao = None
++        if self.shader_program:
++            GL.glDeleteProgram(self.shader_program)
++            self.shader_program = None
++
++
++def _perspective(fovy: float, aspect: float, near: float, far: float) -> np.ndarray:
++    f = 1.0 / math.tan(fovy / 2.0)
++    result = np.zeros((4, 4), dtype=np.float32)
++    result[0, 0] = f / aspect
++    result[1, 1] = f
++    result[2, 2] = (far + near) / (near - far)
++    result[2, 3] = (2 * far * near) / (near - far)
++    result[3, 2] = -1.0
++    return result
++
++
++def _look_at(eye: np.ndarray, target: np.ndarray, up: np.ndarray) -> np.ndarray:
++    zaxis = eye - target
++    zaxis /= np.linalg.norm(zaxis)
++    xaxis = np.cross(up, zaxis)
++    xaxis /= np.linalg.norm(xaxis)
++    yaxis = np.cross(zaxis, xaxis)
++
++    result = np.identity(4, dtype=np.float32)
++    result[0, :3] = xaxis
++    result[1, :3] = yaxis
++    result[2, :3] = zaxis
++    result[0, 3] = -np.dot(xaxis, eye)
++    result[1, 3] = -np.dot(yaxis, eye)
++    result[2, 3] = -np.dot(zaxis, eye)
++    return result
++
++
++def _rotation_matrix(angle_degrees: float, axis: np.ndarray) -> np.ndarray:
++    angle = math.radians(angle_degrees)
++    axis = axis / np.linalg.norm(axis)
++    cos_a = math.cos(angle)
++    sin_a = math.sin(angle)
++    x, y, z = axis
++    result = np.array(
++        [
++            [cos_a + x * x * (1 - cos_a), x * y * (1 - cos_a) - z * sin_a, x * z * (1 - cos_a) + y * sin_a, 0.0],
++            [y * x * (1 - cos_a) + z * sin_a, cos_a + y * y * (1 - cos_a), y * z * (1 - cos_a) - x * sin_a, 0.0],
++            [z * x * (1 - cos_a) - y * sin_a, z * y * (1 - cos_a) + x * sin_a, cos_a + z * z * (1 - cos_a), 0.0],
++            [0.0, 0.0, 0.0, 1.0],
++        ],
++        dtype=np.float32,
++    )
++    return result
++
++
++def _set_uniform_mat4(program: int, name: str, matrix: np.ndarray) -> None:
++    location = GL.glGetUniformLocation(program, name)
++    GL.glUniformMatrix4fv(location, 1, GL.GL_FALSE, matrix)
++
++
++def _set_uniform_vec3(program: int, name: str, vector: np.ndarray) -> None:
++    location = GL.glGetUniformLocation(program, name)
++    GL.glUniform3fv(location, 1, vector)
++
++
++def _set_uniform_float(program: int, name: str, value: float) -> None:
++    location = GL.glGetUniformLocation(program, name)
++    GL.glUniform1f(location, value)
++
++
++def _set_uniform_int(program: int, name: str, value: int) -> None:
++    location = GL.glGetUniformLocation(program, name)
++    GL.glUniform1i(location, value)
++
++
++import ctypes  # noqa: E402  pylint: disable=wrong-import-position
+diff --git a/src/opengl_app/shaders.py b/src/opengl_app/shaders.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..b5da2e7418749f3f0ba34aaf50e9ce4bac336c93
+--- /dev/null
++++ b/src/opengl_app/shaders.py
+@@ -0,0 +1,45 @@
++"""Shader helper utilities."""
++from __future__ import annotations
++
++from OpenGL import GL
++
++
++class ShaderCompilationError(RuntimeError):
++    """Raised when shader compilation fails."""
++
++
++def _compile_shader(source: str, shader_type: int) -> int:
++    shader = GL.glCreateShader(shader_type)
++    GL.glShaderSource(shader, source)
++    GL.glCompileShader(shader)
++    compiled = GL.glGetShaderiv(shader, GL.GL_COMPILE_STATUS)
++    if not compiled:
++        log = GL.glGetShaderInfoLog(shader).decode("utf-8")
++        GL.glDeleteShader(shader)
++        raise ShaderCompilationError(log)
++    return shader
++
++
++def compile_shader_program(vertex_source: str, fragment_source: str) -> int:
++    """Compile a shader program and return its handle."""
++    vertex_shader = _compile_shader(vertex_source, GL.GL_VERTEX_SHADER)
++    fragment_shader = _compile_shader(fragment_source, GL.GL_FRAGMENT_SHADER)
++
++    program = GL.glCreateProgram()
++    GL.glAttachShader(program, vertex_shader)
++    GL.glAttachShader(program, fragment_shader)
++    GL.glLinkProgram(program)
++
++    linked = GL.glGetProgramiv(program, GL.GL_LINK_STATUS)
++    if not linked:
++        log = GL.glGetProgramInfoLog(program).decode("utf-8")
++        GL.glDeleteProgram(program)
++        GL.glDeleteShader(vertex_shader)
++        GL.glDeleteShader(fragment_shader)
++        raise ShaderCompilationError(log)
++
++    GL.glDetachShader(program, vertex_shader)
++    GL.glDetachShader(program, fragment_shader)
++    GL.glDeleteShader(vertex_shader)
++    GL.glDeleteShader(fragment_shader)
++    return program
+diff --git a/src/opengl_app/textures.py b/src/opengl_app/textures.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..73d1b048ed027e71bca278af355e3075ea62668c
+--- /dev/null
++++ b/src/opengl_app/textures.py
+@@ -0,0 +1,74 @@
++"""Texture helpers for loading images into OpenGL."""
++from __future__ import annotations
++
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Optional
++
++import numpy as np
++from OpenGL import GL
++from PIL import Image
++
++
++@dataclass
++class Texture:
++    """Container referencing an OpenGL texture object."""
++
++    handle: int
++    width: int
++    height: int
++
++    def bind(self, unit: int = 0) -> None:
++        GL.glActiveTexture(GL.GL_TEXTURE0 + unit)
++        GL.glBindTexture(GL.GL_TEXTURE_2D, self.handle)
++
++
++def load_texture(path: Path, *, repeat: bool = True, generate_mipmaps: bool = True) -> Texture:
++    """Load an image file into an OpenGL texture."""
++    image = Image.open(path).convert("RGBA")
++    width, height = image.size
++    data = np.array(image, dtype=np.uint8)
++
++    handle = GL.glGenTextures(1)
++    GL.glBindTexture(GL.GL_TEXTURE_2D, handle)
++    GL.glTexImage2D(
++        GL.GL_TEXTURE_2D,
++        0,
++        GL.GL_RGBA,
++        width,
++        height,
++        0,
++        GL.GL_RGBA,
++        GL.GL_UNSIGNED_BYTE,
++        data,
++    )
++
++    wrap_mode = GL.GL_REPEAT if repeat else GL.GL_CLAMP_TO_EDGE
++    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, wrap_mode)
++    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, wrap_mode)
++    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
++    GL.glTexParameteri(
++        GL.GL_TEXTURE_2D,
++        GL.GL_TEXTURE_MIN_FILTER,
++        GL.GL_LINEAR_MIPMAP_LINEAR if generate_mipmaps else GL.GL_LINEAR,
++    )
++
++    if generate_mipmaps:
++        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
++
++    GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
++    return Texture(handle=handle, width=width, height=height)
++
++
++def create_checkerboard_texture(size: int = 128, squares: int = 8) -> Image.Image:
++    """Create a checkerboard PIL image for quick testing."""
++    image = Image.new("RGBA", (size, size))
++    pixels = image.load()
++    block = size // squares
++    for y in range(size):
++        for x in range(size):
++            if (x // block + y // block) % 2 == 0:
++                pixels[x, y] = (255, 230, 170, 255)
++            else:
++                pixels[x, y] = (90, 140, 255, 255)
++    return image
